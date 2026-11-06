@@ -1,0 +1,358 @@
+{
+  "title": "Wartungsplaner",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wartungsplaner einrichten",
+        "description": "Wartungen und Materialbestände lokal in Home Assistant verwalten. Der Planungshorizont bestimmt, wie weit die Einkaufsliste vorausplant.",
+        "data": {
+          "name": "Name",
+          "horizon_days": "Planungshorizont in Tagen"
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Bitte einen Namen eingeben."
+    },
+    "abort": {
+      "already_configured": "Der Wartungsplaner ist bereits eingerichtet.",
+      "single_instance_allowed": "Es kann nur ein Wartungsplaner eingerichtet werden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wartungsplaner verwalten",
+        "menu_options": {
+          "settings": "Einstellungen",
+          "add_task": "Wartung hinzufügen",
+          "edit_task": "Wartung bearbeiten",
+          "remove_task": "Wartung löschen",
+          "add_material": "Material hinzufügen",
+          "edit_material": "Material und Bestand bearbeiten",
+          "remove_material": "Material löschen",
+          "assign_material": "Material zuordnen",
+          "configure_trigger": "Auslöseregel festlegen"
+        }
+      },
+      "settings": {
+        "title": "Einstellungen",
+        "description": "Die Einkaufsliste berücksichtigt den Mindestbestand und alle ausstehenden Wartungen mit Termin bis zum Ende dieses Zeitraums. Überfällige Wartungen sind eingeschlossen; Wartungen ohne Termin werden nicht eingerechnet.",
+        "data": {
+          "horizon_days": "Planungshorizont in Tagen"
+        }
+      },
+      "add_task": {
+        "title": "Wartung hinzufügen",
+        "description": "Für eine einmalige Wartung die Anzahl auf 0 lassen. Für einen Rhythmus Anzahl und Einheit wählen, beispielsweise 8 Wochen. Der nächste Termin wird ab dem Erledigungsdatum berechnet. Material und Auslöseregeln anschließend über die Verwaltung zuordnen.",
+        "data": {
+          "name": "Name",
+          "due_date": "Fällig am",
+          "clear_due_date": "Fälligkeitsdatum entfernen",
+          "description": "Beschreibung",
+          "interval_count": "Wiederholung alle (0 = einmalig)",
+          "interval_unit": "Einheit des Rhythmus"
+        },
+        "data_description": {
+          "clear_due_date": "Aktivieren, um ein gespeichertes Fälligkeitsdatum zu löschen.",
+          "interval_count": "Zum Beispiel 8 mit der Einheit Wochen. 8 Wochen entsprechen 56 Tagen.",
+          "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet."
+        }
+      },
+      "edit_task": {
+        "title": "Wartung auswählen",
+        "data": {
+          "task_id": "Wartung"
+        }
+      },
+      "edit_task_details": {
+        "title": "Wartung bearbeiten",
+        "description": "Für eine einmalige Wartung die Anzahl auf 0 lassen. Für einen Rhythmus Anzahl und Einheit wählen, beispielsweise 8 Wochen. Der nächste Termin wird ab dem Erledigungsdatum berechnet. Material und Auslöseregeln anschließend über die Verwaltung zuordnen.",
+        "data": {
+          "name": "Name",
+          "due_date": "Fällig am",
+          "clear_due_date": "Fälligkeitsdatum entfernen",
+          "description": "Beschreibung",
+          "interval_count": "Wiederholung alle (0 = einmalig)",
+          "interval_unit": "Einheit des Rhythmus"
+        },
+        "data_description": {
+          "clear_due_date": "Aktivieren, um ein gespeichertes Fälligkeitsdatum zu löschen.",
+          "interval_count": "Zum Beispiel 8 mit der Einheit Wochen. 8 Wochen entsprechen 56 Tagen.",
+          "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet."
+        }
+      },
+      "add_material": {
+        "title": "Material hinzufügen",
+        "data": {
+          "name": "Name",
+          "stock": "Aktueller Bestand",
+          "min_stock": "Mindestbestand",
+          "unit": "Einheit (z. B. Stück oder Liter)",
+          "notes": "Notizen"
+        }
+      },
+      "edit_material": {
+        "title": "Material auswählen",
+        "data": {
+          "material_id": "Material"
+        }
+      },
+      "edit_material_details": {
+        "title": "Material und Bestand bearbeiten",
+        "description": "Den aktuellen Gesamtbestand eintragen. Nach einem Einkauf die Menge entsprechend erhöhen.",
+        "data": {
+          "name": "Name",
+          "stock": "Aktueller Bestand",
+          "min_stock": "Mindestbestand",
+          "unit": "Einheit (z. B. Stück oder Liter)",
+          "notes": "Notizen"
+        }
+      },
+      "assign_material": {
+        "title": "Material zuordnen",
+        "description": "Die Menge gilt pro Durchführung dieser Wartung. Ein bestehender Eintrag für dasselbe Material wird ersetzt. Mit Menge 0 wird die Zuordnung entfernt.",
+        "data": {
+          "task_id": "Wartung",
+          "material_id": "Material",
+          "quantity": "Benötigte Menge"
+        }
+      },
+      "remove_task": {
+        "title": "Wartung löschen",
+        "data": {
+          "task_id": "Wartung"
+        }
+      },
+      "remove_material": {
+        "title": "Material löschen",
+        "description": "Ein Material kann erst gelöscht werden, wenn es keiner Wartung mehr zugeordnet ist.",
+        "data": {
+          "material_id": "Material"
+        }
+      },
+      "confirm_remove": {
+        "title": "Löschen bestätigen",
+        "description": "„{name}“ löschen? Gespeicherte Durchführungen bleiben im Verlauf erhalten.",
+        "data": {
+          "confirm": "Löschen bestätigen"
+        }
+      },
+      "configure_trigger": {
+        "title": "Wartung für Auslöseregel auswählen",
+        "data": {
+          "task_id": "Wartung"
+        }
+      },
+      "trigger_details": {
+        "title": "Auslöseregel für „{name}“",
+        "description": "Die Wartung wird fällig, wenn der Zustand einer Entität oder ein Attribut die Bedingung erfüllt. Beispiel: Salzvorrat-leer-Sensor ist gleich `on` → Salz nachfüllen. Eine bereits erfüllte Regel löst sofort aus. `unknown` und `unavailable` werden ignoriert. Ohne Attribut wird der Entitätszustand verwendet.",
+        "data": {
+          "trigger_enabled": "Auslöseregel aktivieren",
+          "trigger_entity_id": "Entität",
+          "trigger_attribute": "Attribut (optional)",
+          "trigger_operator": "Vergleich",
+          "trigger_value": "Vergleichswert"
+        },
+        "data_description": {
+          "trigger_enabled": "Ausschalten, um die Regel zu entfernen. Der Zeitrhythmus bleibt bestehen.",
+          "trigger_attribute": "Interner Attributname, zum Beispiel operating_hours. Leer lassen für den Zustand.",
+          "trigger_value": "Bei „Ist gleich“ exakt und mit Groß-/Kleinschreibung vergleichen, z. B. on. Für „Größer als“ oder „Kleiner als“ eine Zahl eingeben; der Grenzwert selbst löst nicht aus."
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Bitte einen Namen eingeben.",
+      "invalid_input": "Die Angaben sind ungültig. Bitte Werte prüfen und erneut versuchen.",
+      "material_in_use": "Dieses Material ist noch einer Wartung zugeordnet. Die Zuordnung zuerst über „Material zuordnen“ mit Menge 0 entfernen.",
+      "not_found": "Der Eintrag wurde inzwischen gelöscht. Bitte die Verwaltung erneut öffnen.",
+      "storage_error": "Die Änderung konnte nicht gespeichert werden. Bitte erneut versuchen und bei Bedarf das Home-Assistant-Protokoll prüfen.",
+      "invalid_interval": "Bitte Tage, Wochen oder Monate auswählen.",
+      "entity_required": "Bitte eine Entität für die aktivierte Regel auswählen.",
+      "value_required": "Bitte einen Vergleichswert angeben. Für einen leeren Zustand ausdrücklich einen leeren Text verwenden.",
+      "invalid_rule": "Die Regel ist ungültig. Entität, Vergleich und Wert prüfen. Zahlenvergleiche benötigen einen endlichen Zahlenwert."
+    },
+    "abort": {
+      "not_loaded": "Die Integration ist nicht geladen. Bitte zuerst neu laden und erneut versuchen.",
+      "no_tasks": "Es sind noch keine Wartungen vorhanden.",
+      "no_materials": "Es sind noch keine Materialien vorhanden.",
+      "not_found": "Der ausgewählte Eintrag ist nicht mehr vorhanden."
+    }
+  },
+  "entity": {
+    "todo": {
+      "tasks": {
+        "name": "Wartungen"
+      },
+      "shopping": {
+        "name": "Material einkaufen"
+      }
+    },
+    "sensor": {
+      "due_tasks": {
+        "name": "Fällige Wartungen"
+      },
+      "next_due": {
+        "name": "Nächste Wartung"
+      },
+      "missing_materials": {
+        "name": "Fehlende Materialien"
+      },
+      "stock": {
+        "name": "Bestand"
+      }
+    }
+  },
+  "services": {
+    "upsert_material": {
+      "name": "Material anlegen oder bearbeiten",
+      "description": "Materialdaten und Bestand festlegen. Die Material-ID leer lassen, um ein Material anzulegen. Bei angeforderten Antwortdaten wird dessen ID zurückgegeben.",
+      "fields": {
+        "material_id": {
+          "name": "Material-ID",
+          "description": "Vorhandene ID aus get_plan. Leer lassen, um ein Material anzulegen."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Anzeigename des Materials."
+        },
+        "stock": {
+          "name": "Bestand",
+          "description": "Aktueller Bestand in der angegebenen Einheit. Weglassen, um den bisherigen Wert beizubehalten."
+        },
+        "min_stock": {
+          "name": "Mindestbestand",
+          "description": "Gewünschter Mindestbestand in der angegebenen Einheit."
+        },
+        "unit": {
+          "name": "Einheit",
+          "description": "Einheit für Bestand und Verbrauch, beispielsweise Stück oder Liter."
+        },
+        "notes": {
+          "name": "Notizen",
+          "description": "Optionale Hinweise zum Material."
+        }
+      }
+    },
+    "remove_material": {
+      "name": "Material löschen",
+      "description": "Ein Material löschen, nachdem alle Zuordnungen zu Wartungen entfernt wurden.",
+      "fields": {
+        "material_id": {
+          "name": "Material-ID",
+          "description": "ID des zu löschenden Materials aus get_plan."
+        }
+      }
+    },
+    "adjust_stock": {
+      "name": "Bestand ändern",
+      "description": "Eingekaufte Materialien hinzufügen oder den Bestand um eine positive oder negative Menge korrigieren. Der Bestand kann nicht negativ werden.",
+      "fields": {
+        "material_id": {
+          "name": "Material-ID",
+          "description": "ID des zu ändernden Materials aus get_plan."
+        },
+        "quantity": {
+          "name": "Menge hinzufügen oder abziehen",
+          "description": "Positive Mengen erhöhen den Bestand, negative Mengen verringern ihn."
+        }
+      }
+    },
+    "upsert_task": {
+      "name": "Wartung anlegen oder bearbeiten",
+      "description": "Eine Wartung, ihren Materialbedarf und eine optionale Auslöseregel festlegen. Die Wartungs-ID leer lassen, um eine Wartung anzulegen. Wiederholungen verwenden entweder Tage, Wochen oder Kalendermonate.",
+      "fields": {
+        "task_id": {
+          "name": "Wartungs-ID",
+          "description": "Vorhandene ID aus get_plan. Leer lassen, um eine Wartung anzulegen."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Anzeigename der Wartung."
+        },
+        "due_date": {
+          "name": "Fällig am",
+          "description": "Datum im Format JJJJ-MM-TT. In YAML kann null verwendet werden, um das Datum zu entfernen."
+        },
+        "interval_days": {
+          "name": "Wiederholung nach Tagen",
+          "description": "Anzahl der Tage ab dem Erledigungsdatum. Mit 0 die Wiederholung in Tagen ausschalten."
+        },
+        "interval_months": {
+          "name": "Wiederholung nach Kalendermonaten",
+          "description": "Anzahl der Kalendermonate ab dem Erledigungsdatum. Mit 0 die Wiederholung in Monaten ausschalten."
+        },
+        "requirements": {
+          "name": "Materialbedarf",
+          "description": "Zuordnung von Material-IDs zu benötigten Mengen pro Durchführung. Ersetzt alle bisherigen Materialzuordnungen."
+        },
+        "description": {
+          "name": "Beschreibung",
+          "description": "Optionale Anleitung oder Hinweise zur Durchführung der Wartung."
+        },
+        "interval_weeks": {
+          "name": "Wiederholung nach Wochen",
+          "description": "Anzahl der Wochen ab dem Erledigungsdatum. 8 Wochen entsprechen 56 Tagen. Mit 0 die Wiederholung in Wochen ausschalten."
+        },
+        "trigger": {
+          "name": "Auslöseregel",
+          "description": "Objekt mit entity_id, optionalem attribute, operator (equals, above oder below) und value als Text. Die Regel macht die Wartung bei erfüllter Bedingung fällig. In YAML mit null entfernen."
+        }
+      }
+    },
+    "remove_task": {
+      "name": "Wartung löschen",
+      "description": "Eine Wartung löschen. Bisherige Durchführungen bleiben im Verlauf erhalten.",
+      "fields": {
+        "task_id": {
+          "name": "Wartungs-ID",
+          "description": "ID der zu löschenden Wartung aus get_plan."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Wartung erledigen",
+      "description": "Zugeordnetes Material verbrauchen und den nächsten Termin planen. Bei fehlendem Material schlägt die Aktion fehl, ohne den Bestand zu verändern.",
+      "fields": {
+        "task_id": {
+          "name": "Wartungs-ID",
+          "description": "ID der zu erledigenden Wartung aus get_plan."
+        },
+        "expected_generation": {
+          "name": "Durchführungsnummer",
+          "description": "Optionale Nummer aus get_plan. Verhindert erneuten Materialverbrauch, wenn eine Automation denselben Aufruf wiederholt."
+        }
+      }
+    },
+    "reopen_task": {
+      "name": "Wartung wieder öffnen",
+      "description": "Eine erledigte einmalige Wartung wieder öffnen. Verbrauchtes Material wird nicht zurückgebucht; den Bestand bei Bedarf separat korrigieren.",
+      "fields": {
+        "task_id": {
+          "name": "Wartungs-ID",
+          "description": "ID der erledigten einmaligen Wartung aus get_plan, die wieder geöffnet werden soll."
+        }
+      }
+    },
+    "get_plan": {
+      "name": "Wartungsplan und Bestand abrufen",
+      "description": "Materialien, Wartungen mit IDs und Durchführungsnummern, die letzten 1000 Durchführungen sowie den aktuellen Einkaufsbedarf zurückgeben."
+    }
+  },
+  "selector": {
+    "interval_unit": {
+      "options": {
+        "days": "Tage",
+        "weeks": "Wochen",
+        "months": "Monate"
+      }
+    },
+    "trigger_operator": {
+      "options": {
+        "equals": "Ist gleich",
+        "above": "Größer als",
+        "below": "Kleiner als"
+      }
+    }
+  }
+}

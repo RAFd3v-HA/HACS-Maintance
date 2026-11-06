@@ -1,0 +1,120 @@
+upsert_material:
+  fields:
+    material_id:
+      selector:
+        text: null
+    name:
+      required: true
+      example: Filter
+      selector:
+        text: null
+    stock:
+      selector:
+        number:
+          min: 0
+          max: 1000000000
+          step: any
+          mode: box
+    min_stock:
+      selector:
+        number:
+          min: 0
+          max: 1000000000
+          step: any
+          mode: box
+    unit:
+      example: pcs
+      selector:
+        text: null
+    notes:
+      selector:
+        text:
+          multiline: true
+remove_material:
+  fields:
+    material_id:
+      required: true
+      selector:
+        text: null
+adjust_stock:
+  fields:
+    material_id:
+      required: true
+      selector:
+        text: null
+    quantity:
+      required: true
+      selector:
+        number:
+          min: -1000000000
+          max: 1000000000
+          step: any
+          mode: box
+upsert_task:
+  fields:
+    task_id:
+      selector:
+        text: null
+    name:
+      required: true
+      selector:
+        text: null
+    due_date:
+      selector:
+        date: null
+    interval_days:
+      selector:
+        number:
+          min: 0
+          max: 36500
+          mode: box
+    interval_months:
+      selector:
+        number:
+          min: 0
+          max: 1200
+          mode: box
+    requirements:
+      example: '{"material_id": 2}'
+      selector:
+        object: null
+    interval_weeks:
+      selector:
+        number:
+          min: 0
+          max: 5200
+          step: 1
+          mode: box
+    trigger:
+      example: '{"entity_id": "binary_sensor.bwt_perla_duplex_salzvorrat_leer", "operator": "equals", "value": "on"}'
+      selector:
+        object: null
+    description:
+      selector:
+        text:
+          multiline: true
+remove_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text: null
+complete_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text: null
+    expected_generation:
+      selector:
+        number:
+          min: 0
+          max: 1000000000
+          mode: box
+reopen_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text: null
+get_plan: {}

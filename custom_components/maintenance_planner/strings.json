@@ -1,0 +1,358 @@
+{
+  "title": "Maintenance Planner",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Maintenance Planner",
+        "description": "Manage maintenance tasks and material stock locally in Home Assistant. The planning horizon determines how far ahead the shopping list looks.",
+        "data": {
+          "name": "Name",
+          "horizon_days": "Planning horizon in days"
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Enter a name."
+    },
+    "abort": {
+      "already_configured": "Maintenance Planner is already configured.",
+      "single_instance_allowed": "Only one maintenance planner can be configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage maintenance planner",
+        "menu_options": {
+          "settings": "Settings",
+          "add_task": "Add maintenance task",
+          "edit_task": "Edit maintenance task",
+          "remove_task": "Delete maintenance task",
+          "add_material": "Add material",
+          "edit_material": "Edit material and stock",
+          "remove_material": "Delete material",
+          "assign_material": "Assign material",
+          "configure_trigger": "Configure entity rule"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "description": "The shopping list considers minimum stock and all pending tasks due by the end of this horizon. Overdue tasks are included; tasks without a due date are excluded.",
+        "data": {
+          "horizon_days": "Planning horizon in days"
+        }
+      },
+      "add_task": {
+        "title": "Add maintenance task",
+        "description": "Leave the interval at 0 for a one-time task. For a recurring task, choose a count and unit, for example every 8 weeks. The next due date is calculated from completion. Assign materials and entity rules afterwards from the management menu.",
+        "data": {
+          "name": "Name",
+          "due_date": "Due date",
+          "clear_due_date": "Clear due date",
+          "description": "Description",
+          "interval_count": "Repeat every (0 = one-time)",
+          "interval_unit": "Interval unit"
+        },
+        "data_description": {
+          "clear_due_date": "Enable to remove a previously saved due date.",
+          "interval_count": "For example, choose 8 with the unit weeks. Eight weeks is 56 days.",
+          "interval_unit": "Months are calendar months; month-end dates use the last valid day."
+        }
+      },
+      "edit_task": {
+        "title": "Select maintenance task",
+        "data": {
+          "task_id": "Maintenance task"
+        }
+      },
+      "edit_task_details": {
+        "title": "Edit maintenance task",
+        "description": "Leave the interval at 0 for a one-time task. For a recurring task, choose a count and unit, for example every 8 weeks. The next due date is calculated from completion. Assign materials and entity rules afterwards from the management menu.",
+        "data": {
+          "name": "Name",
+          "due_date": "Due date",
+          "clear_due_date": "Clear due date",
+          "description": "Description",
+          "interval_count": "Repeat every (0 = one-time)",
+          "interval_unit": "Interval unit"
+        },
+        "data_description": {
+          "clear_due_date": "Enable to remove a previously saved due date.",
+          "interval_count": "For example, choose 8 with the unit weeks. Eight weeks is 56 days.",
+          "interval_unit": "Months are calendar months; month-end dates use the last valid day."
+        }
+      },
+      "add_material": {
+        "title": "Add material",
+        "data": {
+          "name": "Name",
+          "stock": "Current stock",
+          "min_stock": "Minimum stock",
+          "unit": "Unit (for example pcs or liters)",
+          "notes": "Notes"
+        }
+      },
+      "edit_material": {
+        "title": "Select material",
+        "data": {
+          "material_id": "Material"
+        }
+      },
+      "edit_material_details": {
+        "title": "Edit material and stock",
+        "description": "Enter the total stock currently on hand. Increase it after purchasing more supplies.",
+        "data": {
+          "name": "Name",
+          "stock": "Current stock",
+          "min_stock": "Minimum stock",
+          "unit": "Unit (for example pcs or liters)",
+          "notes": "Notes"
+        }
+      },
+      "assign_material": {
+        "title": "Assign material",
+        "description": "The quantity is needed each time this maintenance task is completed. An existing requirement for the same material is replaced. Use quantity 0 to remove the assignment.",
+        "data": {
+          "task_id": "Maintenance task",
+          "material_id": "Material",
+          "quantity": "Required quantity"
+        }
+      },
+      "remove_task": {
+        "title": "Delete maintenance task",
+        "data": {
+          "task_id": "Maintenance task"
+        }
+      },
+      "remove_material": {
+        "title": "Delete material",
+        "description": "A material can only be deleted after removing it from all maintenance tasks.",
+        "data": {
+          "material_id": "Material"
+        }
+      },
+      "confirm_remove": {
+        "title": "Confirm deletion",
+        "description": "Delete “{name}”? Previously recorded completions remain in the history.",
+        "data": {
+          "confirm": "Confirm deletion"
+        }
+      },
+      "configure_trigger": {
+        "title": "Select maintenance task for entity rule",
+        "data": {
+          "task_id": "Maintenance task"
+        }
+      },
+      "trigger_details": {
+        "title": "Entity rule for “{name}”",
+        "description": "Make the task due when an entity state or an attribute matches the condition. Example: a salt-empty binary sensor equals `on` → refill salt. A rule that already matches takes effect immediately. `unknown` and `unavailable` are ignored. Leave attribute empty to use the entity state.",
+        "data": {
+          "trigger_enabled": "Enable entity rule",
+          "trigger_entity_id": "Entity",
+          "trigger_attribute": "Attribute (optional)",
+          "trigger_operator": "Comparison",
+          "trigger_value": "Comparison value"
+        },
+        "data_description": {
+          "trigger_enabled": "Disable to remove this rule. The time-based schedule remains.",
+          "trigger_attribute": "Internal attribute name, for example operating_hours. Leave empty for the state.",
+          "trigger_value": "Equals compares exact, case-sensitive text, for example on. Above and below require a number and exclude the threshold itself."
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Enter a name.",
+      "invalid_input": "The data is invalid. Check the values and try again.",
+      "material_in_use": "This material is still assigned to a task. Remove its requirements first using Assign material with quantity 0.",
+      "not_found": "This entry was deleted. Reopen the management dialog.",
+      "storage_error": "The change could not be saved. Try again and check the Home Assistant log if needed.",
+      "invalid_interval": "Choose days, weeks or months.",
+      "entity_required": "Select an entity for the enabled rule.",
+      "value_required": "Provide a comparison value. For an empty state, explicitly use empty text.",
+      "invalid_rule": "The rule is invalid. Check the entity, comparison and value. Numeric comparisons require a finite number."
+    },
+    "abort": {
+      "not_loaded": "The integration is not loaded. Reload it and try again.",
+      "no_tasks": "There are no maintenance tasks yet.",
+      "no_materials": "There are no materials yet.",
+      "not_found": "The selected entry no longer exists."
+    }
+  },
+  "entity": {
+    "todo": {
+      "tasks": {
+        "name": "Maintenance"
+      },
+      "shopping": {
+        "name": "Materials to buy"
+      }
+    },
+    "sensor": {
+      "due_tasks": {
+        "name": "Due maintenance"
+      },
+      "next_due": {
+        "name": "Next maintenance"
+      },
+      "missing_materials": {
+        "name": "Missing materials"
+      },
+      "stock": {
+        "name": "Stock"
+      }
+    }
+  },
+  "services": {
+    "upsert_material": {
+      "name": "Create or update material",
+      "description": "Set inventory data. Leave the material ID empty to create a material. Returns its ID when response data is requested.",
+      "fields": {
+        "material_id": {
+          "name": "Material ID",
+          "description": "Existing ID from get_plan. Leave empty to create a material."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Display name of the material."
+        },
+        "stock": {
+          "name": "Stock",
+          "description": "Current stock in the selected unit. Omit to keep the existing value."
+        },
+        "min_stock": {
+          "name": "Minimum stock",
+          "description": "Minimum stock to keep in the selected unit."
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Unit used for stock and consumption quantities, for example pcs or liters."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Optional notes about the material."
+        }
+      }
+    },
+    "remove_material": {
+      "name": "Remove material",
+      "description": "Delete a material after removing all its assignments to maintenance tasks.",
+      "fields": {
+        "material_id": {
+          "name": "Material ID",
+          "description": "ID of the material to delete, as returned by get_plan."
+        }
+      }
+    },
+    "adjust_stock": {
+      "name": "Adjust stock",
+      "description": "Add received materials or apply a signed inventory correction. Stock cannot become negative.",
+      "fields": {
+        "material_id": {
+          "name": "Material ID",
+          "description": "ID of the material to change, as returned by get_plan."
+        },
+        "quantity": {
+          "name": "Quantity to add or subtract",
+          "description": "Positive quantities add stock; negative quantities subtract it."
+        }
+      }
+    },
+    "upsert_task": {
+      "name": "Create or update maintenance",
+      "description": "Set a maintenance task, its material requirements and an optional entity rule. Leave the task ID empty to create a task. Intervals use days, weeks or calendar months.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "Existing ID from get_plan. Leave empty to create a maintenance task."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Display name of the maintenance task."
+        },
+        "due_date": {
+          "name": "Due date",
+          "description": "YYYY-MM-DD. In YAML, use null to clear the date."
+        },
+        "interval_days": {
+          "name": "Repeat after days",
+          "description": "Days from completion. Set to zero for no day interval."
+        },
+        "interval_months": {
+          "name": "Repeat after calendar months",
+          "description": "Months from completion. Set to zero for no month interval."
+        },
+        "requirements": {
+          "name": "Material requirements",
+          "description": "Mapping of material IDs to quantities per maintenance occurrence. Replaces all existing assignments."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Optional instructions or notes for performing the maintenance task."
+        },
+        "interval_weeks": {
+          "name": "Repeat after weeks",
+          "description": "Number of weeks from completion. Eight weeks is 56 days. Set to zero for no week interval."
+        },
+        "trigger": {
+          "name": "Entity rule",
+          "description": "Object with entity_id, optional attribute, operator (equals, above or below), and value as text. A matching condition makes the task due. In YAML, use null to remove the rule."
+        }
+      }
+    },
+    "remove_task": {
+      "name": "Remove maintenance",
+      "description": "Delete a task. Previous completions remain in the history.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "ID of the maintenance task to delete, as returned by get_plan."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Complete maintenance",
+      "description": "Consume assigned materials and schedule the next occurrence. Fails without changing stock if materials are missing.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "ID of the maintenance task to complete, as returned by get_plan."
+        },
+        "expected_generation": {
+          "name": "Occurrence number",
+          "description": "Optional generation from get_plan. Prevents duplicate consumption when retrying an automation."
+        }
+      }
+    },
+    "reopen_task": {
+      "name": "Reopen maintenance",
+      "description": "Reopen a completed one-off task. Consumed material is not restored; correct inventory separately when necessary.",
+      "fields": {
+        "task_id": {
+          "name": "Task ID",
+          "description": "ID of the completed one-time task to reopen, as returned by get_plan."
+        }
+      }
+    },
+    "get_plan": {
+      "name": "Get plan and inventory",
+      "description": "Return materials, tasks with IDs and occurrence numbers, the latest 1000 completions, and the current shopping needs."
+    }
+  },
+  "selector": {
+    "interval_unit": {
+      "options": {
+        "days": "Days",
+        "weeks": "Weeks",
+        "months": "Months"
+      }
+    },
+    "trigger_operator": {
+      "options": {
+        "equals": "Equals",
+        "above": "Above",
+        "below": "Below"
+      }
+    }
+  }
+}
