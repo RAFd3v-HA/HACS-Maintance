@@ -13,6 +13,7 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 from math import isclose, isfinite
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 MAX_HISTORY = 1000
@@ -24,6 +25,14 @@ class PlannerError(ValueError):
 
 class MaterialInUseError(PlannerError):
     """A material cannot be deleted while a task references it."""
+
+
+class DeviceInUseError(PlannerError):
+    """A device cannot be removed while assigned to a task or material."""
+
+
+class InvalidPurchaseUrlError(PlannerError):
+    """A material purchase link is invalid."""
 
 
 class InsufficientStockError(PlannerError):
@@ -47,6 +56,32 @@ def _text(value: Any, label: str, *, required: bool = False) -> str:
     if required and not value:
         raise PlannerError(f"{label} must not be empty")
     return value
+
+
+def _purchase_url(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise InvalidPurchaseUrlError("Purchase URL must be text")
+    url = value.strip()
+    if not url:
+        return None
+    message = "Purchase URL must be an absolute HTTP or HTTPS URL without credentials"
+    if any(char.isspace() or ord(char) < 32 or char in '\x7f\\<>"' for char in url):
+        raise InvalidPurchaseUrlError(message)
+    try:
+        parts = urlsplit(url)
+        _ = parts.port  # Accessing the property validates any explicit port.
+    except ValueError as err:
+        raise InvalidPurchaseUrlError(message) from err
+    if (
+        parts.scheme not in {"http", "https"}
+        or not parts.hostname
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise InvalidPurchaseUrlError(message)
+    return url
 
 
 def _number(value: Any, label: str, *, positive: bool = False) -> float:
@@ -98,6 +133,13 @@ def _reminder_key(value: Any, label: str) -> str | None:
     if isinstance(value, str) and value.startswith("signal:"):
         return _signal_token(value, label)
     return _iso_date(value, label)
+
+
+def _reset_occurrence_reminders(task: dict[str, Any]) -> None:
+    """Clear calendar deliveries while preserving an active signal reminder."""
+    task.update(due_reminded_for=None, due_pushed_for=None)
+    if task["reminder_trigger"] is None:
+        task.update(reminded_for=None, pushed_for=None)
 
 
 def _calendar_date(value: Any, label: str) -> date:
@@ -159,6 +201,7 @@ class PlannerData:
     """In-memory planner with atomic validated operations and JSON snapshots."""
 
     def __init__(self) -> None:
+        self.device_ids: list[str] = []
         self.materials: dict[str, dict[str, Any]] = {}
         self.tasks: dict[str, dict[str, Any]] = {}
         self.history: list[dict[str, Any]] = []
@@ -176,6 +219,7 @@ class PlannerData:
         if not isinstance(history, list):
             raise PlannerError("History must be a list")
         result = cls()
+        result.set_device_ids(data.get("device_ids", []))
         for material_id, material in materials.items():
             _identifier(material_id, "Material ID")
             if not isinstance(material, dict) or material.get("id") != material_id:
@@ -190,6 +234,8 @@ class PlannerData:
             "reminder_trigger_token",
             "reminded_for",
             "pushed_for",
+            "due_reminded_for",
+            "due_pushed_for",
         }
         for task_id, task in tasks.items():
             _identifier(task_id, "Task ID")
@@ -205,6 +251,17 @@ class PlannerData:
                 key: value for key, value in task.items() if key not in protected_fields
             }
             result.upsert_task(task_id, **fields)
+            reminded_for = task.get("reminded_for")
+            pushed_for = task.get("pushed_for")
+            due_reminded_for = task.get("due_reminded_for")
+            due_pushed_for = task.get("due_pushed_for")
+            if task.get("reminder_days") == 0:
+                # Older versions stored due-day deliveries with the early markers.
+                if due_reminded_for is None:
+                    due_reminded_for = reminded_for
+                if due_pushed_for is None:
+                    due_pushed_for = pushed_for
+                reminded_for = pushed_for = None
             result.tasks[task_id].update(
                 trigger_state,
                 generation=generation,
@@ -212,10 +269,10 @@ class PlannerData:
                     task.get("reminder_trigger_token"),
                     "Saved reminder activation token",
                 ),
-                reminded_for=_reminder_key(
-                    task.get("reminded_for"), "Saved reminder key"
-                ),
-                pushed_for=_reminder_key(task.get("pushed_for"), "Saved push key"),
+                reminded_for=_reminder_key(reminded_for, "Saved reminder key"),
+                pushed_for=_reminder_key(pushed_for, "Saved push key"),
+                due_reminded_for=_iso_date(due_reminded_for, "Saved due reminder date"),
+                due_pushed_for=_iso_date(due_pushed_for, "Saved due push date"),
             )
         for record in history:
             result._validate_history(record)
@@ -225,8 +282,29 @@ class PlannerData:
     def to_dict(self) -> dict[str, Any]:
         """Return a detached JSON-compatible snapshot."""
         return deepcopy(
-            {"materials": self.materials, "tasks": self.tasks, "history": self.history}
+            {
+                "device_ids": self.device_ids,
+                "materials": self.materials,
+                "tasks": self.tasks,
+                "history": self.history,
+            }
         )
+
+    def set_device_ids(self, device_ids: list[str]) -> None:
+        """Replace the ordered device catalog, keeping all referenced devices."""
+        if not isinstance(device_ids, list):
+            raise PlannerError("Device IDs must be a list")
+        validated = [_identifier(device_id, "Device ID") for device_id in device_ids]
+        unique = set(validated)
+        if len(unique) != len(validated):
+            raise PlannerError("Device IDs must be unique")
+        if any(
+            record["device_id"] is not None and record["device_id"] not in unique
+            for records in (self.tasks, self.materials)
+            for record in records.values()
+        ):
+            raise DeviceInUseError("A device is still assigned to a task or material")
+        self.device_ids = validated
 
     def upsert_material(self, material_id: str | None = None, **fields: Any) -> str:
         """Create or update material, committing only after complete validation."""
@@ -235,7 +313,15 @@ class PlannerData:
             if material_id is None
             else _identifier(material_id, "Material ID")
         )
-        allowed = {"name", "stock", "min_stock", "unit", "notes"}
+        allowed = {
+            "name",
+            "stock",
+            "min_stock",
+            "unit",
+            "notes",
+            "device_id",
+            "purchase_url",
+        }
         if fields.keys() - allowed:
             raise PlannerError("Unknown material fields")
         material = {
@@ -245,6 +331,8 @@ class PlannerData:
             "min_stock": 0.0,
             "unit": "",
             "notes": "",
+            "device_id": None,
+            "purchase_url": None,
             **self.materials.get(material_id, {}),
             **deepcopy(fields),
         }
@@ -253,6 +341,8 @@ class PlannerData:
         material["min_stock"] = _number(material["min_stock"], "Minimum stock")
         material["unit"] = _text(material["unit"], "Unit")
         material["notes"] = _text(material["notes"], "Notes")
+        material["device_id"] = self._device_id(material["device_id"])
+        material["purchase_url"] = _purchase_url(material["purchase_url"])
         self.materials[material_id] = material
         return material_id
 
@@ -284,7 +374,9 @@ class PlannerData:
         task_id = uuid4().hex if task_id is None else _identifier(task_id, "Task ID")
         allowed = {
             "name",
+            "device_id",
             "due_date",
+            "due_reminder",
             "interval_days",
             "interval_weeks",
             "interval_months",
@@ -302,7 +394,11 @@ class PlannerData:
         task = {
             "id": task_id,
             "name": "",
+            "device_id": None,
             "due_date": None,
+            "due_reminder": False,
+            "due_reminded_for": None,
+            "due_pushed_for": None,
             "interval_days": 0,
             "interval_weeks": 0,
             "interval_months": 0,
@@ -324,6 +420,7 @@ class PlannerData:
             **deepcopy(fields),
         }
         task["name"] = _text(task["name"], "Maintenance name", required=True)
+        task["device_id"] = self._device_id(task["device_id"])
         task["description"] = _text(task["description"], "Description")
         task["due_date"] = _iso_date(task["due_date"], "Due date")
         task["last_completed"] = _iso_date(task["last_completed"], "Last completion")
@@ -343,14 +440,18 @@ class PlannerData:
         task["trigger"] = _trigger(task["trigger"])
         reminder_days = task["reminder_days"]
         if reminder_days is not None and (
-            type(reminder_days) is not int or reminder_days not in (0, 7)
+            type(reminder_days) is not int or not 0 <= reminder_days <= 365
         ):
             raise PlannerError(
-                "Reminder must be disabled, on the due date, or 7 days before"
+                "Early reminder must be disabled or scheduled 1 to 365 days before"
             )
         task["reminder_trigger"] = _trigger(task["reminder_trigger"])
         if reminder_days is not None and task["reminder_trigger"] is not None:
             raise PlannerError("Choose a date or an entity condition for the reminder")
+        if not isinstance(task["due_reminder"], bool):
+            raise PlannerError("Due reminder must be a boolean")
+        if reminder_days == 0:
+            task.update(reminder_days=None, due_reminder=True)
         reminder_push = task["reminder_push"]
         if reminder_push is not None and (
             not isinstance(reminder_push, str)
@@ -368,8 +469,8 @@ class PlannerData:
                 task.update(
                     reminder_trigger_token=None, reminded_for=None, pushed_for=None
                 )
-            elif previous["reminder_push"] != reminder_push:
-                task["pushed_for"] = None
+            if previous["reminder_push"] != reminder_push:
+                task.update(pushed_for=None, due_pushed_for=None)
         if not isinstance(task["completed"], bool):
             raise PlannerError("Completed must be a boolean")
         if not isinstance(task["requirements"], dict):
@@ -439,8 +540,7 @@ class PlannerData:
         task["generation"] += 1
         task["completed"] = next_due is None
         task["triggered"] = False
-        if task["reminder_trigger"] is None:
-            task.update(reminded_for=None, pushed_for=None)
+        _reset_occurrence_reminders(task)
         if next_due is not None:
             task["due_date"] = next_due.isoformat()
         self.history.append(
@@ -464,16 +564,19 @@ class PlannerData:
         if task["completed"]:
             task["completed"] = False
             task["generation"] += 1
-            if task["reminder_trigger"] is None:
-                task.update(reminded_for=None, pushed_for=None)
+            _reset_occurrence_reminders(task)
 
-    def mark_reminder_sent(self, task_id: str, key: str, *, push: bool = False) -> None:
+    def mark_reminder_sent(
+        self, task_id: str, key: str, *, push: bool = False, due: bool = False
+    ) -> None:
         """Record delivery for one channel and due date or condition activation."""
         task = self._task(task_id)
-        key = _reminder_key(key, "Reminder key")
+        validator = _iso_date if due else _reminder_key
+        key = validator(key, "Reminder key")
         if key is None:
             raise PlannerError("Reminder key is required")
-        task["pushed_for" if push else "reminded_for"] = key
+        field = "pushed_for" if push else "reminded_for"
+        task[f"due_{field}" if due else field] = key
 
     def set_reminder_trigger_state(self, task_id: str, active: bool) -> bool:
         """Start or rearm a reminder activation without changing the maintenance task."""
@@ -518,8 +621,7 @@ class PlannerData:
             if task["completed"]:
                 task["completed"] = False
                 task["generation"] += 1
-                if task["reminder_trigger"] is None:
-                    task.update(reminded_for=None, pushed_for=None)
+                _reset_occurrence_reminders(task)
         return True
 
     def due_tasks(self, today: date) -> list[dict[str, Any]]:
@@ -589,6 +691,14 @@ class PlannerData:
         if task_id not in self.tasks:
             raise PlannerError("Unknown maintenance ID")
         return self.tasks[task_id]
+
+    def _device_id(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        device_id = _identifier(value, "Device ID")
+        if device_id not in self.device_ids:
+            raise PlannerError("Device is not in the maintenance catalog")
+        return device_id
 
     @staticmethod
     def _validate_history(record: Any) -> None:

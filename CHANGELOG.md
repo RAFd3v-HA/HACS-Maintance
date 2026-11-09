@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Verwaltet eine eigene Auswahl von Home-Assistant-Geräten und ordnet ihnen Wartungen und Materialien zu.
+- Speichert eine optionale Bezugsquelle pro Verbrauchsartikel und zeigt das zugeordnete Gerät bei der Materialauswahl.
+- Trennt die Vorwarnung nach einstellbarer Dauer oder Entität von der Nachricht bei Fälligkeit.
+
 ## 0.3.0
 
 - Wählt Verbrauchsartikel und Mengen direkt beim Anlegen einer Wartung aus.

@@ -33,7 +33,8 @@
           "edit_material": "Material und Bestand bearbeiten",
           "remove_material": "Material löschen",
           "assign_material": "Material zuordnen",
-          "configure_trigger": "Auslöseregel festlegen"
+          "configure_trigger": "Auslöseregel festlegen",
+          "manage_devices": "Geräte verwalten"
         }
       },
       "settings": {
@@ -55,9 +56,11 @@
           "interval_unit": "Einheit des Rhythmus",
           "consumables": "Verbrauchsartikel",
           "use_signal": "Wartungsmeldung verwenden",
-          "signal_device_id": "Gerät für Meldungen",
-          "reminder_mode": "Erinnerung",
-          "reminder_push": "Handy-Push"
+          "reminder_mode": "Vorwarnung",
+          "reminder_push": "Handy-Push",
+          "device_id": "Gerät",
+          "reminder_days": "Tage vorher",
+          "due_reminder": "Bei Fälligkeit benachrichtigen"
         },
         "data_description": {
           "clear_due_date": "Aktivieren, um ein gespeichertes Fälligkeitsdatum zu löschen.",
@@ -66,9 +69,11 @@
           "consumables": "Optional ein oder mehrere vorhandene Materialien auswählen und die benötigte Menge pro Durchführung angeben.",
           "due_date": "Datum leer lassen und die Wiederholung auf 0 setzen, wenn nur die Wartungsmeldung auslösen soll. Ein Datum kann zusätzlich zur Meldung eingetragen werden.",
           "use_signal": "Aktivieren, um im nächsten Schritt die Entität und den auslösenden Zustand auszuwählen.",
-          "signal_device_id": "Optional ein Gerät auswählen, um im nächsten Schritt nur dessen Entitäten für Wartungsmeldung und Erinnerung anzuzeigen. Ohne Geräteauswahl stehen alle verfügbaren Entitäten zur Auswahl.",
-          "reminder_mode": "Eine Benachrichtigung am Fälligkeitstag, eine Woche vorher oder bei einer Vorwarnung einer Entität einrichten.",
-          "reminder_push": "Optional zusätzlich eine Push-Nachricht an ein Gerät mit Home Assistant Companion App senden."
+          "reminder_mode": "Eine Vorwarnung vor dem Fälligkeitstermin oder bei passendem Zustand einer Entität senden.",
+          "reminder_push": "Vorwarnung und Fälligkeitsmeldung optional zusätzlich als Push an ein Gerät mit Home Assistant Companion App senden.",
+          "device_id": "Ein Gerät aus „Geräte verwalten“ auswählen. In der Meldungsauswahl erscheinen dann dessen Entitäten. Bei „Kein Gerät“ sind alle verfügbaren Entitäten wählbar.",
+          "reminder_days": "Für „Tage vor Fälligkeit“ eine Vorlaufzeit von 1 bis 365 Tagen angeben.",
+          "due_reminder": "Eine Benachrichtigung senden, sobald der Termin erreicht ist oder die Wartungsmeldung die Wartung fällig macht."
         }
       },
       "edit_task": {
@@ -87,17 +92,21 @@
           "description": "Beschreibung",
           "interval_count": "Wiederholung alle (0 = einmalig)",
           "interval_unit": "Einheit des Rhythmus",
-          "reminder_mode": "Erinnerung",
+          "reminder_mode": "Vorwarnung",
           "reminder_push": "Handy-Push",
-          "signal_device_id": "Gerät für Meldungen"
+          "device_id": "Gerät",
+          "reminder_days": "Tage vorher",
+          "due_reminder": "Bei Fälligkeit benachrichtigen"
         },
         "data_description": {
           "clear_due_date": "Aktivieren, um ein gespeichertes Fälligkeitsdatum zu löschen.",
           "interval_count": "Zum Beispiel 8 mit der Einheit Wochen. 8 Wochen entsprechen 56 Tagen.",
           "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet.",
-          "reminder_mode": "Eine Benachrichtigung am Fälligkeitstag, eine Woche vorher oder bei einer Vorwarnung einer Entität einrichten.",
-          "reminder_push": "Optional zusätzlich eine Push-Nachricht an ein Gerät mit Home Assistant Companion App senden.",
-          "signal_device_id": "Optional ein Gerät auswählen, um im nächsten Schritt nur dessen Entitäten für Wartungsmeldung und Erinnerung anzuzeigen. Ohne Geräteauswahl stehen alle verfügbaren Entitäten zur Auswahl."
+          "reminder_mode": "Eine Vorwarnung vor dem Fälligkeitstermin oder bei passendem Zustand einer Entität senden.",
+          "reminder_push": "Vorwarnung und Fälligkeitsmeldung optional zusätzlich als Push an ein Gerät mit Home Assistant Companion App senden.",
+          "device_id": "Ein Gerät aus „Geräte verwalten“ auswählen. In der Meldungsauswahl erscheinen dann dessen Entitäten. Bei „Kein Gerät“ sind alle verfügbaren Entitäten wählbar.",
+          "reminder_days": "Für „Tage vor Fälligkeit“ eine Vorlaufzeit von 1 bis 365 Tagen angeben.",
+          "due_reminder": "Eine Benachrichtigung senden, sobald der Termin erreicht ist oder die Wartungsmeldung die Wartung fällig macht."
         }
       },
       "add_material": {
@@ -107,7 +116,13 @@
           "stock": "Aktueller Bestand",
           "min_stock": "Mindestbestand",
           "unit": "Einheit (z. B. Stück oder Liter)",
-          "notes": "Notizen"
+          "notes": "Notizen",
+          "device_id": "Gerät",
+          "purchase_url": "Bezugsquelle (URL)"
+        },
+        "data_description": {
+          "device_id": "Optional ein Gerät aus „Geräte verwalten“ zuordnen, für das dieses Material verwendet wird.",
+          "purchase_url": "Optionaler Link zur Bezugsquelle. Eine vollständige URL mit `https://` oder `http://` eingeben."
         }
       },
       "edit_material": {
@@ -124,7 +139,13 @@
           "stock": "Aktueller Bestand",
           "min_stock": "Mindestbestand",
           "unit": "Einheit (z. B. Stück oder Liter)",
-          "notes": "Notizen"
+          "notes": "Notizen",
+          "device_id": "Gerät",
+          "purchase_url": "Bezugsquelle (URL)"
+        },
+        "data_description": {
+          "device_id": "Optional ein Gerät aus „Geräte verwalten“ zuordnen, für das dieses Material verwendet wird.",
+          "purchase_url": "Optionaler Link zur Bezugsquelle. Eine vollständige URL mit `https://` oder `http://` eingeben."
         }
       },
       "assign_material": {
@@ -180,18 +201,25 @@
       },
       "task_signals": {
         "title": "Meldungen auswählen",
-        "description": "Die Erinnerung kann bei fast leerem Salzvorrat eine Vorwarnung senden. Fällig wird die Wartung am optionalen Termin oder bei passender Wartungsmeldung, etwa bei leerem Salzvorrat.",
+        "description": "Die Vorwarnung kann etwa bei fast leerem Salzvorrat informieren. Fällig wird die Wartung am optionalen Termin oder bei passender Wartungsmeldung, etwa bei leerem Salzvorrat.",
         "data": {
           "trigger_entity_id": "Wartungsmeldung",
           "trigger_value": "Auslösender Zustand",
-          "reminder_entity_id": "Entität für Erinnerung",
-          "reminder_value": "Zustand für Erinnerung"
+          "reminder_entity_id": "Entität für Vorwarnung",
+          "reminder_value": "Zustand für Vorwarnung"
         },
         "data_description": {
           "trigger_entity_id": "Optional eine Entität auswählen, etwa den Binärsensor für leeren Salzvorrat einer BWT-Anlage. Die Wartung wird bei passendem Zustand fällig.",
           "trigger_value": "Der interne Zustand der Entität muss exakt übereinstimmen. Voreingestellt ist `on`, wie bei Binärsensoren.",
           "reminder_entity_id": "Die Entität für die Vorwarnung auswählen, zum Beispiel den BWT-Sensor für fast leeren Salzvorrat.",
           "reminder_value": "Der interne Zustand der Entität muss exakt übereinstimmen. Voreingestellt ist `on`, wie bei Binärsensoren."
+        }
+      },
+      "manage_devices": {
+        "title": "Geräte verwalten",
+        "description": "Die hier ausgewählten Geräte stehen bei der Zuordnung von Wartungen und Materialien zur Verfügung.",
+        "data": {
+          "device_ids": "Geräte"
         }
       }
     },
@@ -210,7 +238,11 @@
       "duplicate_consumable": "Jeden Verbrauchsartikel nur einmal auswählen und die benötigte Gesamtmenge eingeben.",
       "invalid_consumable": "Bitte vorhandene Materialien auswählen und für jedes eine gültige Menge größer als 0 eingeben.",
       "signal_device_has_no_entities": "Dieses Gerät hat keine aktivierten Entitäten. Bitte ein anderes Gerät auswählen oder die Geräteauswahl leer lassen.",
-      "signal_entity_unavailable": "Bitte eine verfügbare Entität aus der Liste auswählen."
+      "signal_entity_unavailable": "Bitte eine verfügbare Entität aus der Liste auswählen.",
+      "device_in_use": "Mindestens ein abgewähltes Gerät ist noch einer Wartung oder einem Material zugeordnet. Bitte zuerst die Zuordnung ändern.",
+      "device_unavailable": "Bitte ein verfügbares Gerät aus der Liste auswählen.",
+      "invalid_purchase_url": "Bitte eine vollständige Webadresse mit https:// oder http:// eingeben.",
+      "invalid_reminder_days": "Bitte eine ganze Zahl von 1 bis 365 eingeben."
     },
     "abort": {
       "not_loaded": "Die Integration ist nicht geladen. Bitte zuerst neu laden und erneut versuchen.",
@@ -409,14 +441,18 @@
     "task_reminder_mode": {
       "options": {
         "off": "Aus",
-        "due": "Am Fälligkeitstag",
-        "week": "Eine Woche vorher",
+        "time": "Tage vor Fälligkeit",
         "signal": "Bei Entitätssignal"
       }
     },
     "task_reminder_push": {
       "options": {
         "local": "Nur in Home Assistant"
+      }
+    },
+    "task_device": {
+      "options": {
+        "none": "Kein Gerät"
       }
     }
   }

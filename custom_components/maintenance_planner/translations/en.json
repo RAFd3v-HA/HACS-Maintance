@@ -33,7 +33,8 @@
           "edit_material": "Edit material and stock",
           "remove_material": "Delete material",
           "assign_material": "Assign material",
-          "configure_trigger": "Configure entity rule"
+          "configure_trigger": "Configure entity rule",
+          "manage_devices": "Manage devices"
         }
       },
       "settings": {
@@ -55,9 +56,11 @@
           "interval_unit": "Interval unit",
           "consumables": "Consumables",
           "use_signal": "Use maintenance signal",
-          "signal_device_id": "Device for signals",
-          "reminder_mode": "Reminder",
-          "reminder_push": "Mobile push"
+          "reminder_mode": "Early warning",
+          "reminder_push": "Mobile push",
+          "device_id": "Device",
+          "reminder_days": "Days in advance",
+          "due_reminder": "Notify when due"
         },
         "data_description": {
           "clear_due_date": "Enable to remove a previously saved due date.",
@@ -66,9 +69,11 @@
           "consumables": "Optionally choose one or more saved materials and enter the quantity needed per occurrence.",
           "due_date": "Leave the date empty and set the interval to 0 to use the maintenance signal alone. You can also set a date alongside the signal.",
           "use_signal": "Enable to choose the entity and the triggering state in the next step.",
-          "signal_device_id": "Optionally choose a device to show only its entities when selecting the maintenance and reminder signals. Leave it empty to choose from all available entities.",
-          "reminder_mode": "Send a notification on the due date, one week before, or when a selected entity reports a warning.",
-          "reminder_push": "Optionally send an additional push notification to a device with the Home Assistant Companion App."
+          "reminder_mode": "Send an early warning before the due date or when an entity reports a matching state.",
+          "reminder_push": "Optionally send early warnings and due notifications to a device with the Home Assistant Companion App as push notifications.",
+          "device_id": "Choose a device from Manage devices to limit signal selection to its entities. Choose No device to select from all available entities.",
+          "reminder_days": "For Days before due date, enter a lead time from 1 to 365 days.",
+          "due_reminder": "Send a notification when the due date arrives or the maintenance signal makes the task due."
         }
       },
       "edit_task": {
@@ -87,17 +92,21 @@
           "description": "Description",
           "interval_count": "Repeat every (0 = one-time)",
           "interval_unit": "Interval unit",
-          "reminder_mode": "Reminder",
+          "reminder_mode": "Early warning",
           "reminder_push": "Mobile push",
-          "signal_device_id": "Device for signals"
+          "device_id": "Device",
+          "reminder_days": "Days in advance",
+          "due_reminder": "Notify when due"
         },
         "data_description": {
           "clear_due_date": "Enable to remove a previously saved due date.",
           "interval_count": "For example, choose 8 with the unit weeks. Eight weeks is 56 days.",
           "interval_unit": "Months are calendar months; month-end dates use the last valid day.",
-          "reminder_mode": "Send a notification on the due date, one week before, or when a selected entity reports a warning.",
-          "reminder_push": "Optionally send an additional push notification to a device with the Home Assistant Companion App.",
-          "signal_device_id": "Optionally choose a device to show only its entities when selecting the maintenance and reminder signals. Leave it empty to choose from all available entities."
+          "reminder_mode": "Send an early warning before the due date or when an entity reports a matching state.",
+          "reminder_push": "Optionally send early warnings and due notifications to a device with the Home Assistant Companion App as push notifications.",
+          "device_id": "Choose a device from Manage devices to limit signal selection to its entities. Choose No device to select from all available entities.",
+          "reminder_days": "For Days before due date, enter a lead time from 1 to 365 days.",
+          "due_reminder": "Send a notification when the due date arrives or the maintenance signal makes the task due."
         }
       },
       "add_material": {
@@ -107,7 +116,13 @@
           "stock": "Current stock",
           "min_stock": "Minimum stock",
           "unit": "Unit (for example pcs or liters)",
-          "notes": "Notes"
+          "notes": "Notes",
+          "device_id": "Device",
+          "purchase_url": "Purchase URL"
+        },
+        "data_description": {
+          "device_id": "Optionally assign a device from Manage devices that uses this material.",
+          "purchase_url": "Optional link to the supplier. Enter a full URL beginning with `https://` or `http://`."
         }
       },
       "edit_material": {
@@ -124,7 +139,13 @@
           "stock": "Current stock",
           "min_stock": "Minimum stock",
           "unit": "Unit (for example pcs or liters)",
-          "notes": "Notes"
+          "notes": "Notes",
+          "device_id": "Device",
+          "purchase_url": "Purchase URL"
+        },
+        "data_description": {
+          "device_id": "Optionally assign a device from Manage devices that uses this material.",
+          "purchase_url": "Optional link to the supplier. Enter a full URL beginning with `https://` or `http://`."
         }
       },
       "assign_material": {
@@ -180,18 +201,25 @@
       },
       "task_signals": {
         "title": "Select signals",
-        "description": "A reminder can warn you when the salt supply is nearly empty. Maintenance becomes due on the optional date or when the maintenance signal matches, for example when the salt supply is empty.",
+        "description": "An early warning can notify you when the salt supply is nearly empty. Maintenance becomes due on the optional date or when the maintenance signal matches, for example when the salt supply is empty.",
         "data": {
           "trigger_entity_id": "Maintenance signal",
           "trigger_value": "Trigger state",
-          "reminder_entity_id": "Reminder entity",
-          "reminder_value": "Reminder state"
+          "reminder_entity_id": "Early warning entity",
+          "reminder_value": "Early warning state"
         },
         "data_description": {
           "trigger_entity_id": "Optionally select an entity, such as the binary sensor that reports an empty salt supply on a BWT system. A matching state makes the task due.",
           "trigger_value": "The entity’s raw state must match exactly. The default is `on`, as used by binary sensors.",
           "reminder_entity_id": "Choose the entity that provides the early warning, for example the BWT sensor for a nearly empty salt supply.",
           "reminder_value": "The entity’s raw state must match exactly. The default is `on`, as used by binary sensors."
+        }
+      },
+      "manage_devices": {
+        "title": "Manage devices",
+        "description": "The devices selected here are available when assigning maintenance tasks and materials.",
+        "data": {
+          "device_ids": "Devices"
         }
       }
     },
@@ -210,7 +238,11 @@
       "duplicate_consumable": "Select each consumable once and enter the total quantity needed.",
       "invalid_consumable": "Choose saved materials and enter a valid quantity greater than zero for each one.",
       "signal_device_has_no_entities": "This device has no enabled entities. Choose another device or leave the device selection empty.",
-      "signal_entity_unavailable": "Choose an available entity from the list."
+      "signal_entity_unavailable": "Choose an available entity from the list.",
+      "device_in_use": "At least one removed device is still assigned to a maintenance task or material. Change its assignments first.",
+      "device_unavailable": "Choose an available device from the list.",
+      "invalid_purchase_url": "Enter a full web address beginning with https:// or http://.",
+      "invalid_reminder_days": "Enter a whole number from 1 to 365."
     },
     "abort": {
       "not_loaded": "The integration is not loaded. Reload it and try again.",
@@ -409,14 +441,18 @@
     "task_reminder_mode": {
       "options": {
         "off": "Off",
-        "due": "On the due date",
-        "week": "One week before",
+        "time": "Days before due date",
         "signal": "When an entity signals"
       }
     },
     "task_reminder_push": {
       "options": {
         "local": "Home Assistant only"
+      }
+    },
+    "task_device": {
+      "options": {
+        "none": "No device"
       }
     }
   }

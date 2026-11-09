@@ -3,7 +3,7 @@
 Lokale Wartungsplanung und Materialverwaltung als Custom Integration. Für
 beliebige Geräte, Fahrzeuge, Anlagen oder andere wiederkehrende Aufgaben.
 
-Version **0.3.0** benötigt Home Assistant **2026.10 oder neuer**.
+Version **0.4.0** benötigt Home Assistant **2026.10 oder neuer**.
 
 Die Tests mit Home Assistant **2026.11.0** öffnen die Formulare über
 dieselben HTTP-Endpunkte wie die Home-Assistant-Oberfläche.
@@ -14,12 +14,12 @@ dieselben HTTP-Endpunkte wie die Home-Assistant-Oberfläche.
 - Wartungen mit Datum, Beschreibung und Wiederholung in Tagen, Wochen oder Monaten
 - Wartungen anhand von Zuständen, Attributen oder Schwellenwerten vorhandener
   Entitäten automatisch fällig setzen
-- Geräteauswahl zum Filtern der Entitäten für eine Wartungsmeldung
-- Materialien mit Bestand, Einheit, Mindestbestand und Notizen
+- Eigene Auswahl der Geräte, die der Wartungsplaner verwaltet
+- Materialien mit Gerät, Bezugslink, Bestand, Einheit und Mindestbestand
 - Verbrauchsartikel und Mengen beim Anlegen auswählen und bei Erledigung
   automatisch abbuchen
-- Erinnerungen zu einem Termin oder bei einem Entitätssignal mit Materialbestand
-  und optionalem Handy-Push
+- Vorwarnung mit frei einstellbarer Anzahl Tage oder per Entitätssignal und
+  separate Fälligkeitsmeldung mit Materialbestand und optionalem Handy-Push
 - Kein Teilverbrauch, wenn für eine Wartung Material fehlt
 - Native Aufgabenliste für Wartungen und berechnete Material-Einkaufsliste
 - Sensoren für fällige Wartungen, nächsten Termin, fehlende Materialien und
@@ -58,18 +58,22 @@ Beim Hochladen einer neuen Version auf GitHub müssen `hacs.json` und
 
 Öffne bei der Integration **Konfigurieren** beziehungsweise das Zahnrad:
 
-1. **Material hinzufügen**: beispielsweise „Filter“, Bestand 3, Mindestbestand 1,
-   Einheit „Stück“.
-2. Wähle **Wartung hinzufügen** und gib Name, Datum oder Wartungsmeldung und
+1. Öffne **Geräte verwalten** und wähle die Home-Assistant-Geräte, die du im
+   Wartungsplaner sehen und zuordnen möchtest.
+2. Wähle **Material hinzufügen**. Trage Artikel, zugehöriges Gerät, Bestand,
+   Einheit und bei Bedarf eine **Bezugsquelle (URL)** ein. Die Auswahl zum
+   Bearbeiten zeigt den Gerätenamen neben dem Artikel.
+3. Wähle **Wartung hinzufügen** und gib Name, Gerät, Datum oder Wartungsmeldung und
    gegebenenfalls einen Rhythmus ein. Für „alle 8 Wochen“ wählst du die Anzahl 8
    und die Einheit **Wochen**. Anzahl 0 schaltet den Zeitrhythmus aus.
-3. Wähle unter **Verbrauchsartikel** die benötigten Artikel und gib je Artikel
+4. Wähle unter **Verbrauchsartikel** die benötigten Artikel und gib je Artikel
    die Menge pro Durchführung an. Über **Material zuordnen** kannst du die
    Mengen später ändern. Menge 0 entfernt dort eine Zuordnung.
-4. Stelle bei Bedarf **Erinnerung** und **Handy-Push** ein.
-5. Öffne in der Seitenleiste **Aufgabenlisten** die Liste **Wartungen**.
+5. Stelle **Vorwarnung**, **Bei Fälligkeit benachrichtigen** und bei Bedarf
+   **Handy-Push** ein.
+6. Öffne in der Seitenleiste **Aufgabenlisten** die Liste **Wartungen**.
    Beim Abhaken wird Material verbraucht und der nächste Termin berechnet.
-6. Fehlendes Material steht in **Material einkaufen**. Nach dem Einkauf den
+7. Fehlendes Material steht in **Material einkaufen**. Nach dem Einkauf den
    Bestand über **Material bearbeiten** setzen oder die Aktion
    `maintenance_planner.adjust_stock` verwenden.
 
@@ -77,6 +81,8 @@ Neue einmalige Aufgaben können auch direkt in der Aufgabenliste angelegt
 werden. Wiederholung und Materialzuordnung werden in den Integrationsoptionen
 ergänzt. Wartungen und Materialien lassen sich dort auch bearbeiten und löschen.
 Vor dem Löschen eines Materials müssen seine Zuordnungen entfernt werden.
+Um ein Gerät aus dem Wartungsplaner zu entfernen, entferne zuerst seine
+Zuordnungen bei den zugehörigen Wartungen und Verbrauchsartikeln.
 
 Die Einkaufsliste wird automatisch berechnet und ist schreibgeschützt. Ein
 gekauftes Material verschwindet, sobald ausreichend Bestand eingetragen ist.
@@ -90,7 +96,7 @@ konfigurierten Regeln; Texte aus beliebigen Meldungen werden nicht frei
 interpretiert.
 
 Für die BWT-Anlage legst du **Salz nachfüllen** an und aktivierst
-**Wartungsmeldung verwenden**. Wähle die Anlage als **Gerät für Wartungsmeldung**.
+**Wartungsmeldung verwenden**. Wähle die Anlage im Feld **Gerät**.
 Im nächsten Schritt wählst du `binary_sensor.bwt_perla_duplex_salzvorrat_leer`
 und den Zustand `on`. Für eine Wartung allein nach Bedarf lässt du das Datum
 leer und stellst die Wiederholung auf 0. Wenn **Salz** bereits als Material
@@ -121,25 +127,26 @@ Quellentität umbenannt oder gelöscht wird, die Regel entsprechend aktualisiere
 
 ## Erinnerungen
 
-Beim Anlegen oder Bearbeiten einer Wartung wählst du **Aus**,
-**Am Fälligkeitstag**, **Eine Woche vorher** oder **Bei Entitätssignal**.
-Die Erinnerung erscheint in Home Assistant. Unter **Handy-Push** kannst du
-zusätzlich ein Telefon auswählen, das bereits für Benachrichtigungen über die
+Beim Anlegen oder Bearbeiten stellst du **Vorwarnung** und **Bei Fälligkeit
+benachrichtigen** getrennt ein. Für die Vorwarnung kannst du **Tage vor
+Fälligkeit** mit einer Anzahl von 1 bis 365 Tagen oder **Bei Entitätssignal**
+wählen. Beide Meldungen erscheinen in Home Assistant. Unter **Handy-Push**
+kannst du für beide ein Telefon auswählen, das für Benachrichtigungen über die
 Companion App registriert ist.
 
 Mit **Bei Entitätssignal** wählst du im nächsten Schritt die Entität und ihren
 auslösenden Zustand. Das ausgewählte Gerät grenzt die Liste ein. So kann bei
 BWT **Salz fast leer** eine Vorwarnung senden, während **Salz leer** die Wartung
-fällig setzt. Die Vorwarnung funktioniert ohne geplantes Datum und wird bei
-einem erneuten Wechsel in den passenden Zustand wieder ausgelöst.
+fällig setzt und die Fälligkeitsmeldung auslöst. Die Vorwarnung funktioniert
+ohne geplantes Datum und wird bei einem erneuten Wechsel in den passenden
+Zustand wieder ausgelöst.
 
 Die Nachricht nennt pro Artikel die benötigte, vorhandene und fehlende Menge
 zum Zeitpunkt der Erinnerung. Bei Zeiterinnerungen prüft der Planer täglich um 9 Uhr Ortszeit,
 beim Start und bei Änderungen des Termins oder der Erinnerungseinstellungen.
 Eine offene Wartung im Erinnerungszeitraum kann daher auch direkt nach dem
-Anlegen eine Nachricht auslösen. Wenn erst eine Wartungsmeldung das Datum
-festlegt, ist die Wartung ab diesem Moment fällig und die Erinnerung kann
-ab dann erscheinen.
+Anlegen eine Nachricht auslösen. Liegt die Fälligkeit bereits vor und ist die
+Fälligkeitsmeldung aktiv, sendet der Planer die Fälligkeitsmeldung.
 
 ## Planung und Bestände
 

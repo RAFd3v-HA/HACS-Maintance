@@ -13,11 +13,13 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     BooleanSelector,
     DateSelector,
     DeviceSelector,
+    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -30,14 +32,20 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
+    TextSelectorType,
 )
 
 from .const import DOMAIN
-from .models import MaterialInUseError, PlannerError
+from .models import (
+    DeviceInUseError,
+    InvalidPurchaseUrlError,
+    MaterialInUseError,
+    PlannerError,
+)
 
 _MAX_HORIZON_DAYS = 365
 _MAX_INTERVAL_COUNT = 36500
-_REMINDER_DAYS = {"off": None, "due": 0, "week": 7, "signal": None}
+_MAX_REMINDER_DAYS = 365
 
 
 def _is_whole_number(value: float, maximum: int) -> bool:
@@ -60,7 +68,10 @@ def _number(
 
 
 def _selection(
-    records: dict[str, dict[str, Any]], *, show_units: bool = False
+    records: dict[str, dict[str, Any]],
+    *,
+    show_units: bool = False,
+    device_names: dict[str, str] | None = None,
 ) -> SelectSelector:
     """Build a labelled selection while keeping stable IDs in the stored value."""
     labels = {
@@ -69,6 +80,10 @@ def _selection(
         else record["name"]
         for record_id, record in records.items()
     }
+    if device_names:
+        for record_id, record in records.items():
+            if device_name := device_names.get(record.get("device_id")):
+                labels[record_id] = f"{labels[record_id]} · {device_name}"
     names = list(labels.values())
     options = [
         {
@@ -179,13 +194,44 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
         """Keep saved preferences when a data edit finishes."""
         return self.async_create_entry(title="", data=dict(self.config_entry.options))
 
+    def _record_selection(
+        self, records: dict[str, dict[str, Any]], *, show_units: bool = False
+    ) -> SelectSelector:
+        """Show the assigned device next to each task or material."""
+        return _selection(
+            records, show_units=show_units, device_names=self._device_names()
+        )
+
+    def _device_names(self) -> dict[str, str]:
+        return {
+            device_id: self._manager.device_name(device_id)
+            for device_id in self._manager.data.device_ids
+        }
+
+    def _device_selector(self) -> SelectSelector:
+        """Offer only the devices selected for this planner."""
+        options = [{"value": "none", "label": "No device"}]
+        options.extend(
+            {"value": device_id, "label": name}
+            for device_id, name in sorted(
+                self._device_names().items(), key=lambda item: item[1].casefold()
+            )
+        )
+        return SelectSelector(
+            SelectSelectorConfig(
+                options=options,
+                translation_key="task_device",
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        )
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Show the planner's management menu."""
         if not hasattr(self.config_entry, "runtime_data"):
             return self.async_abort(reason="not_loaded")
-        menu = ["settings", "add_task", "add_material"]
+        menu = ["manage_devices", "add_task", "add_material", "settings"]
         if self._manager.data.tasks:
             menu.extend(["edit_task", "configure_trigger", "remove_task"])
         if self._manager.data.materials:
@@ -193,6 +239,46 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
         if self._manager.data.tasks and self._manager.data.materials:
             menu.append("assign_material")
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_manage_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose which Home Assistant devices are managed by the planner."""
+        current = self._manager.data.device_ids
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            selected = user_input["device_ids"]
+            registry = dr.async_get(self.hass)
+            if any(
+                device not in current and registry.async_get(device) is None
+                for device in selected
+            ):
+                errors["device_ids"] = "device_unavailable"
+            else:
+                try:
+                    await self._manager.async_set_device_ids(selected)
+                except DeviceInUseError:
+                    errors["device_ids"] = "device_in_use"
+                except PlannerError:
+                    errors["device_ids"] = "invalid_input"
+                except HomeAssistantError:
+                    errors["base"] = "storage_error"
+                else:
+                    return self._finish()
+        return self.async_show_form(
+            step_id="manage_devices",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Optional("device_ids", default=[]): DeviceSelector(
+                            DeviceSelectorConfig(multiple=True)
+                        )
+                    }
+                ),
+                user_input if user_input is not None else {"device_ids": current},
+            ),
+            errors=errors,
+        )
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
@@ -245,7 +331,9 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             errors["base"] = "not_found"
         return self.async_show_form(
             step_id="edit_task",
-            data_schema=vol.Schema({vol.Required("task_id"): _selection(tasks)}),
+            data_schema=vol.Schema(
+                {vol.Required("task_id"): self._record_selection(tasks)}
+            ),
             errors=errors,
         )
 
@@ -275,17 +363,16 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             interval_count = fields.pop("interval_count", 0)
             interval_unit = fields.pop("interval_unit", "days")
             reminder_mode = fields.pop("reminder_mode", None)
+            reminder_days = fields.pop("reminder_days", 7)
             reminder_push = fields.pop("reminder_push", None)
-            if reminder_mode is not None:
-                fields["reminder_days"] = _REMINDER_DAYS[reminder_mode]
-                if reminder_mode != "signal":
-                    fields["reminder_trigger"] = None
             if reminder_push is not None:
                 fields["reminder_push"] = (
                     None if reminder_push == "local" else reminder_push
                 )
             use_signal = fields.pop("use_signal", False)
-            signal_device_id = fields.pop("signal_device_id", None)
+            if fields.get("device_id") == "none":
+                fields["device_id"] = None
+            device_id = fields.get("device_id", current.get("device_id"))
             rows = fields.pop("consumables", [])
             if interval_unit not in ("days", "weeks", "months"):
                 errors["interval_unit"] = "invalid_interval"
@@ -293,7 +380,22 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 errors["interval_count"] = "invalid_interval_count"
             elif not fields["name"].strip():
                 errors["name"] = "invalid_name"
+            elif (
+                device_id is not None and device_id not in self._manager.data.device_ids
+            ):
+                errors["device_id"] = "device_unavailable"
+            elif reminder_mode == "time" and (
+                not _is_whole_number(reminder_days, _MAX_REMINDER_DAYS)
+                or reminder_days < 1
+            ):
+                errors["reminder_days"] = "invalid_reminder_days"
             else:
+                if reminder_mode is not None:
+                    fields["reminder_days"] = (
+                        int(reminder_days) if reminder_mode == "time" else None
+                    )
+                    if reminder_mode != "signal":
+                        fields["reminder_trigger"] = None
                 fields.update(interval_days=0, interval_weeks=0, interval_months=0)
                 fields[f"interval_{interval_unit}"] = int(interval_count)
                 if adding:
@@ -306,9 +408,9 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 if not errors and (
                     (adding and use_signal) or reminder_mode == "signal"
                 ):
-                    self._signal_device_id = signal_device_id
+                    self._signal_device_id = device_id
                     if self._signal_entities() == []:
-                        errors["signal_device_id"] = "signal_device_has_no_entities"
+                        errors["device_id"] = "signal_device_has_no_entities"
                     else:
                         self._task_draft = fields
                         self._use_due_signal = adding and use_signal
@@ -326,6 +428,7 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 break
         schema_fields = {
             vol.Required("name"): TextSelector(),
+            vol.Optional("device_id"): self._device_selector(),
             vol.Optional("due_date"): DateSelector(),
             vol.Required("clear_due_date", default=False): BooleanSelector(),
             vol.Required("interval_count", default=interval_count): _number(
@@ -353,17 +456,22 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                         translation_key="task_consumables",
                         fields={
                             "material_id": {
-                                "selector": _selection(materials, show_units=True),
+                                "selector": self._record_selection(
+                                    materials, show_units=True
+                                ),
                                 "required": True,
                             },
                             "quantity": {"selector": _number(), "required": True},
                         },
                     )
                 )
-        schema_fields.update(self._reminder_fields(current))
-        schema_fields[vol.Optional("signal_device_id")] = DeviceSelector()
+        schema_fields.update(self._reminder_fields(current, adding=adding))
         suggested = {key: value for key, value in current.items() if value is not None}
-        suggested.update(interval_count=interval_count, interval_unit=interval_unit)
+        suggested.update(
+            device_id=current.get("device_id") or "none",
+            interval_count=interval_count,
+            interval_unit=interval_unit,
+        )
         suggested.update(user_input or {})
         return self.async_show_form(
             step_id=step_id,
@@ -373,17 +481,13 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             errors=errors,
         )
 
-    def _reminder_fields(self, task: dict[str, Any]) -> dict[Any, Any]:
+    def _reminder_fields(self, task: dict[str, Any], *, adding: bool) -> dict[Any, Any]:
         """Offer local reminders and the available Companion App push services."""
-        mode = (
-            "signal"
-            if task.get("reminder_trigger")
-            else next(
-                key
-                for key, days in _REMINDER_DAYS.items()
-                if days == task.get("reminder_days")
-            )
-        )
+        mode = "off"
+        if task.get("reminder_trigger"):
+            mode = "signal"
+        elif task.get("reminder_days"):
+            mode = "time"
         push_services = {
             name
             for name in self.hass.services.async_services().get("notify", {})
@@ -396,9 +500,18 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 "reminder_mode", description={"suggested_value": mode}
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=list(_REMINDER_DAYS), translation_key="task_reminder_mode"
+                    options=["off", "time", "signal"],
+                    translation_key="task_reminder_mode",
                 )
             ),
+            vol.Optional(
+                "reminder_days",
+                description={"suggested_value": task.get("reminder_days") or 7},
+            ): _number(1, _MAX_REMINDER_DAYS, integer=True),
+            vol.Optional(
+                "due_reminder",
+                description={"suggested_value": task.get("due_reminder", adding)},
+            ): BooleanSelector(),
             vol.Optional(
                 "reminder_push", description={"suggested_value": push or "local"}
             ): SelectSelector(
@@ -512,7 +625,9 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             errors["base"] = "not_found"
         return self.async_show_form(
             step_id="configure_trigger",
-            data_schema=vol.Schema({vol.Required("task_id"): _selection(tasks)}),
+            data_schema=vol.Schema(
+                {vol.Required("task_id"): self._record_selection(tasks)}
+            ),
             errors=errors,
         )
 
@@ -616,7 +731,7 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="edit_material",
             data_schema=vol.Schema(
-                {vol.Required("material_id"): _selection(materials)}
+                {vol.Required("material_id"): self._record_selection(materials)}
             ),
             errors=errors,
         )
@@ -636,13 +751,23 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             return self.async_abort(reason="not_found")
         errors: dict[str, str] = {}
         if user_input is not None:
-            if not user_input["name"].strip():
+            fields = dict(user_input)
+            if fields.get("device_id") == "none":
+                fields["device_id"] = None
+            device_id = fields.get("device_id")
+            if not fields["name"].strip():
                 errors["name"] = "invalid_name"
+            elif (
+                device_id is not None and device_id not in self._manager.data.device_ids
+            ):
+                errors["device_id"] = "device_unavailable"
             else:
                 try:
                     await self._manager.async_upsert_material(
-                        self._material_id, **user_input
+                        self._material_id, **fields
                     )
+                except InvalidPurchaseUrlError:
+                    errors["purchase_url"] = "invalid_purchase_url"
                 except PlannerError:
                     errors["base"] = "invalid_input"
                 except HomeAssistantError:
@@ -655,15 +780,23 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 vol.Schema(
                     {
                         vol.Required("name"): TextSelector(),
+                        vol.Optional("device_id"): self._device_selector(),
                         vol.Required("stock", default=0): _number(),
                         vol.Required("min_stock", default=0): _number(),
                         vol.Required("unit", default="pcs"): TextSelector(),
+                        vol.Optional("purchase_url", default=""): TextSelector(
+                            TextSelectorConfig(type=TextSelectorType.URL)
+                        ),
                         vol.Optional("notes", default=""): TextSelector(
                             TextSelectorConfig(multiline=True)
                         ),
                     }
                 ),
-                {**current, **(user_input or {})},
+                {
+                    **current,
+                    "device_id": current.get("device_id") or "none",
+                    **(user_input or {}),
+                },
             ),
             errors=errors,
         )
@@ -705,8 +838,10 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             data_schema=self.add_suggested_values_to_schema(
                 vol.Schema(
                     {
-                        vol.Required("task_id"): _selection(tasks),
-                        vol.Required("material_id"): _selection(materials),
+                        vol.Required("task_id"): self._record_selection(tasks),
+                        vol.Required("material_id"): self._record_selection(
+                            materials, show_units=True
+                        ),
                         vol.Required("quantity", default=1): _number(),
                     }
                 ),
@@ -748,7 +883,9 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             errors["base"] = "not_found"
         return self.async_show_form(
             step_id=f"remove_{kind}",
-            data_schema=vol.Schema({vol.Required(field): _selection(records)}),
+            data_schema=vol.Schema(
+                {vol.Required(field): self._record_selection(records)}
+            ),
             errors=errors,
         )
 

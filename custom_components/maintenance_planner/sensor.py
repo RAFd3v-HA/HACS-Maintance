@@ -68,6 +68,10 @@ class PlannerSummary(PlannerEntity, SensorEntity):
                     {
                         "id": task["id"],
                         "name": task["name"],
+                        "device_id": task["device_id"],
+                        "device": self.manager.device_name(task["device_id"])
+                        if task["device_id"]
+                        else None,
                         "due_date": task["due_date"],
                         "triggered": task["triggered"],
                         "source_entity": task["trigger"]["entity_id"]
@@ -130,8 +134,12 @@ class MaterialStock(PlannerEntity, SensorEntity):
         material = self.manager.data.materials.get(self._material_id)
         if material is None:
             return {}
+        device_id = material["device_id"]
         return {
             "material_id": self._material_id,
+            "device_id": device_id,
+            "device": self.manager.device_name(device_id) if device_id else None,
+            "purchase_url": material["purchase_url"],
             "minimum_stock": material["min_stock"],
             "purchase_quantity": self.manager.shopping_needs().get(
                 self._material_id, 0

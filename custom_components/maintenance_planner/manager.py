@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -111,6 +112,16 @@ class PlannerManager:
             lambda data: data.upsert_material(material_id, **fields)
         )
 
+    async def async_set_device_ids(self, device_ids: list[str]) -> None:
+        """Save the managed device selection with the planner's records."""
+        await self._async_mutate(lambda data: data.set_device_ids(device_ids))
+
+    def device_name(self, device_id: str) -> str:
+        """Read the latest name from the Home Assistant device registry."""
+        if device := dr.async_get(self.hass).async_get(device_id):
+            return device.name_by_user or device.name or device_id
+        return device_id
+
     async def async_remove_material(self, material_id: str) -> None:
         """Remove an unreferenced material."""
         await self._async_mutate(lambda data: data.remove_material(material_id))
@@ -149,6 +160,7 @@ class PlannerManager:
         generation: int,
         *,
         push: bool = False,
+        due: bool = False,
         expected_push: str | None = None,
     ) -> bool:
         """Record delivery only for the occurrence and channel that were sent."""
@@ -157,19 +169,22 @@ class PlannerManager:
             task = data.tasks.get(task_id)
             if task is None or (push and task["reminder_push"] != expected_push):
                 return False
-            if reminder_key.startswith("signal:"):
+            if not due and reminder_key.startswith("signal:"):
                 if task["reminder_trigger_token"] != reminder_key:
                     return False
             elif (
                 task["completed"]
                 or task["due_date"] != reminder_key
                 or task["generation"] != generation
-                or task["reminder_days"] is None
+                or (not task["due_reminder"] if due else task["reminder_days"] is None)
             ):
                 return False
-            if task["pushed_for" if push else "reminded_for"] == reminder_key:
+            marker = "pushed_for" if push else "reminded_for"
+            if due:
+                marker = f"due_{marker}"
+            if task[marker] == reminder_key:
                 return False
-            data.mark_reminder_sent(task_id, reminder_key, push=push)
+            data.mark_reminder_sent(task_id, reminder_key, push=push, due=due)
             return True
 
         return await self._async_mutate(update)
