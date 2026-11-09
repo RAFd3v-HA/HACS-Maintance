@@ -21,6 +21,7 @@ from .models import PlannerData, PlannerError
 from .storage import PlannerStore
 
 if TYPE_CHECKING:
+    from .reminders import PlannerReminders
     from .triggers import PlannerTriggers
 
 _T = TypeVar("_T")
@@ -37,6 +38,7 @@ class PlannerManager:
         self._lock = asyncio.Lock()
         self._listeners: set[Callable[[], None]] = set()
         self.triggers: PlannerTriggers | None = None
+        self.reminders: PlannerReminders | None = None
 
     @property
     def horizon_days(self) -> int:
@@ -137,6 +139,51 @@ class PlannerManager:
             if task is None or task["trigger"] != expected_trigger:
                 return False
             return data.set_trigger_state(task_id, active, dt_util.now().date())
+
+        return await self._async_mutate(update)
+
+    async def async_mark_reminder_sent(
+        self,
+        task_id: str,
+        reminder_key: str,
+        generation: int,
+        *,
+        push: bool = False,
+        expected_push: str | None = None,
+    ) -> bool:
+        """Record delivery only for the occurrence and channel that were sent."""
+
+        def update(data: PlannerData) -> bool:
+            task = data.tasks.get(task_id)
+            if task is None or (push and task["reminder_push"] != expected_push):
+                return False
+            if reminder_key.startswith("signal:"):
+                if task["reminder_trigger_token"] != reminder_key:
+                    return False
+            elif (
+                task["completed"]
+                or task["due_date"] != reminder_key
+                or task["generation"] != generation
+                or task["reminder_days"] is None
+            ):
+                return False
+            if task["pushed_for" if push else "reminded_for"] == reminder_key:
+                return False
+            data.mark_reminder_sent(task_id, reminder_key, push=push)
+            return True
+
+        return await self._async_mutate(update)
+
+    async def async_set_reminder_trigger_state(
+        self, task_id: str, active: bool, expected_trigger: dict[str, Any]
+    ) -> bool:
+        """Update a reminder condition only if the selected rule is still current."""
+
+        def update(data: PlannerData) -> bool:
+            task = data.tasks.get(task_id)
+            if task is None or task["reminder_trigger"] != expected_trigger:
+                return False
+            return data.set_reminder_trigger_state(task_id, active)
 
         return await self._async_mutate(update)
 

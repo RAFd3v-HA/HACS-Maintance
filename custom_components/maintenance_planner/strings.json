@@ -45,19 +45,30 @@
       },
       "add_task": {
         "title": "Add maintenance task",
-        "description": "Leave the interval at 0 for a one-time task. For a recurring task, choose a count and unit, for example every 8 weeks. The next due date is calculated from completion. Assign materials and entity rules afterwards from the management menu.",
+        "description": "Choose a count and unit for a recurring schedule, for example every 8 weeks. The next due date is calculated from completion. A count of 0 leaves follow-up dates unscheduled.",
         "data": {
           "name": "Name",
           "due_date": "Due date",
           "clear_due_date": "Clear due date",
           "description": "Description",
-          "interval_count": "Repeat every (0 = one-time)",
-          "interval_unit": "Interval unit"
+          "interval_count": "Repeat every (0 = no schedule)",
+          "interval_unit": "Interval unit",
+          "consumables": "Consumables",
+          "use_signal": "Use maintenance signal",
+          "signal_device_id": "Device for signals",
+          "reminder_mode": "Reminder",
+          "reminder_push": "Mobile push"
         },
         "data_description": {
           "clear_due_date": "Enable to remove a previously saved due date.",
           "interval_count": "For example, choose 8 with the unit weeks. Eight weeks is 56 days.",
-          "interval_unit": "Months are calendar months; month-end dates use the last valid day."
+          "interval_unit": "Months are calendar months; month-end dates use the last valid day.",
+          "consumables": "Optionally choose one or more saved materials and enter the quantity needed per occurrence.",
+          "due_date": "Leave the date empty and set the interval to 0 to use the maintenance signal alone. You can also set a date alongside the signal.",
+          "use_signal": "Enable to choose the entity and the triggering state in the next step.",
+          "signal_device_id": "Optionally choose a device to show only its entities when selecting the maintenance and reminder signals. Leave it empty to choose from all available entities.",
+          "reminder_mode": "Send a notification on the due date, one week before, or when a selected entity reports a warning.",
+          "reminder_push": "Optionally send an additional push notification to a device with the Home Assistant Companion App."
         }
       },
       "edit_task": {
@@ -75,12 +86,18 @@
           "clear_due_date": "Clear due date",
           "description": "Description",
           "interval_count": "Repeat every (0 = one-time)",
-          "interval_unit": "Interval unit"
+          "interval_unit": "Interval unit",
+          "reminder_mode": "Reminder",
+          "reminder_push": "Mobile push",
+          "signal_device_id": "Device for signals"
         },
         "data_description": {
           "clear_due_date": "Enable to remove a previously saved due date.",
           "interval_count": "For example, choose 8 with the unit weeks. Eight weeks is 56 days.",
-          "interval_unit": "Months are calendar months; month-end dates use the last valid day."
+          "interval_unit": "Months are calendar months; month-end dates use the last valid day.",
+          "reminder_mode": "Send a notification on the due date, one week before, or when a selected entity reports a warning.",
+          "reminder_push": "Optionally send an additional push notification to a device with the Home Assistant Companion App.",
+          "signal_device_id": "Optionally choose a device to show only its entities when selecting the maintenance and reminder signals. Leave it empty to choose from all available entities."
         }
       },
       "add_material": {
@@ -160,6 +177,22 @@
           "trigger_attribute": "Internal attribute name, for example operating_hours. Leave empty for the state.",
           "trigger_value": "Equals compares exact, case-sensitive text, for example on. Above and below require a number and exclude the threshold itself."
         }
+      },
+      "task_signals": {
+        "title": "Select signals",
+        "description": "A reminder can warn you when the salt supply is nearly empty. Maintenance becomes due on the optional date or when the maintenance signal matches, for example when the salt supply is empty.",
+        "data": {
+          "trigger_entity_id": "Maintenance signal",
+          "trigger_value": "Trigger state",
+          "reminder_entity_id": "Reminder entity",
+          "reminder_value": "Reminder state"
+        },
+        "data_description": {
+          "trigger_entity_id": "Optionally select an entity, such as the binary sensor that reports an empty salt supply on a BWT system. A matching state makes the task due.",
+          "trigger_value": "The entity’s raw state must match exactly. The default is `on`, as used by binary sensors.",
+          "reminder_entity_id": "Choose the entity that provides the early warning, for example the BWT sensor for a nearly empty salt supply.",
+          "reminder_value": "The entity’s raw state must match exactly. The default is `on`, as used by binary sensors."
+        }
       }
     },
     "error": {
@@ -173,13 +206,18 @@
       "invalid_horizon": "Enter a whole number from 0 to 365.",
       "entity_required": "Select an entity for the enabled rule.",
       "value_required": "Provide a comparison value. For an empty state, explicitly use empty text.",
-      "invalid_rule": "The rule is invalid. Check the entity, comparison and value. Numeric comparisons require a finite number."
+      "invalid_rule": "The rule is invalid. Check the entity, comparison and value. Numeric comparisons require a finite number.",
+      "duplicate_consumable": "Select each consumable once and enter the total quantity needed.",
+      "invalid_consumable": "Choose saved materials and enter a valid quantity greater than zero for each one.",
+      "signal_device_has_no_entities": "This device has no enabled entities. Choose another device or leave the device selection empty.",
+      "signal_entity_unavailable": "Choose an available entity from the list."
     },
     "abort": {
       "not_loaded": "The integration is not loaded. Reload it and try again.",
       "no_tasks": "There are no maintenance tasks yet.",
       "no_materials": "There are no materials yet.",
-      "not_found": "The selected entry no longer exists."
+      "not_found": "The selected entry no longer exists.",
+      "signal_device_unavailable": "The selected device no longer has any available entities. Reopen the form and choose an available device."
     }
   },
   "entity": {
@@ -355,6 +393,30 @@
         "equals": "Equals",
         "above": "Above",
         "below": "Below"
+      }
+    },
+    "task_consumables": {
+      "fields": {
+        "material_id": {
+          "name": "Material"
+        },
+        "quantity": {
+          "name": "Quantity per occurrence",
+          "overview_label": "Uses {value} each time"
+        }
+      }
+    },
+    "task_reminder_mode": {
+      "options": {
+        "off": "Off",
+        "due": "On the due date",
+        "week": "One week before",
+        "signal": "When an entity signals"
+      }
+    },
+    "task_reminder_push": {
+      "options": {
+        "local": "Home Assistant only"
       }
     }
   }

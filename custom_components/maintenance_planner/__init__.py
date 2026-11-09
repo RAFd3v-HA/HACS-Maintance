@@ -15,6 +15,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .manager import PlannerManager
 from .models import PlannerError
+from .reminders import PlannerReminders
 from .services import async_register_services
 from .triggers import PlannerTriggers
 
@@ -47,6 +48,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PlannerConfigEntry) -> b
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     manager.triggers = PlannerTriggers(hass, manager)
     await manager.triggers.async_start()
+    manager.reminders = PlannerReminders(hass, manager)
+    await manager.reminders.async_start()
     return True
 
 
@@ -60,8 +63,12 @@ async def _async_options_updated(
 async def async_unload_entry(hass: HomeAssistant, entry: PlannerConfigEntry) -> bool:
     """Unload all entities and listeners."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unloaded and entry.runtime_data.triggers is not None:
-        await entry.runtime_data.triggers.async_stop()
+    if unloaded:
+        manager = entry.runtime_data
+        if manager.reminders is not None:
+            await manager.reminders.async_stop()
+        if manager.triggers is not None:
+            await manager.triggers.async_stop()
     return unloaded
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Wählt Verbrauchsartikel und Mengen direkt beim Anlegen einer Wartung aus.
+- Wählt eine Wartungsmeldung als Auslöser aus und filtert ihre Entitäten nach Gerät.
+- Erinnert am Fälligkeitstag, eine Woche vorher oder bei einem separaten Entitätssignal mit aktuellen Materialmengen.
+- Unterstützt neben Home-Assistant-Erinnerungen optional Companion-App-Push.
+
 ## 0.2.1
 
 - Behebt den HTTP-500-Fehler beim Öffnen der Konfigurationsformulare.

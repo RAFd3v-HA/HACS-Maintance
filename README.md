@@ -3,10 +3,9 @@
 Lokale Wartungsplanung und Materialverwaltung als Custom Integration. Für
 beliebige Geräte, Fahrzeuge, Anlagen oder andere wiederkehrende Aufgaben.
 
-Version **0.2.1** benötigt Home Assistant **2026.10 oder neuer**.
+Version **0.3.0** benötigt Home Assistant **2026.10 oder neuer**.
 
-Alle **80 Tests** bestehen mit Home Assistant **2026.11.0**. Die Tests öffnen
-die Formulare für Einrichtung, Einstellungen und Wartungsrhythmus über
+Die Tests mit Home Assistant **2026.11.0** öffnen die Formulare über
 dieselben HTTP-Endpunkte wie die Home-Assistant-Oberfläche.
 
 ## Funktionen
@@ -15,8 +14,12 @@ dieselben HTTP-Endpunkte wie die Home-Assistant-Oberfläche.
 - Wartungen mit Datum, Beschreibung und Wiederholung in Tagen, Wochen oder Monaten
 - Wartungen anhand von Zuständen, Attributen oder Schwellenwerten vorhandener
   Entitäten automatisch fällig setzen
+- Geräteauswahl zum Filtern der Entitäten für eine Wartungsmeldung
 - Materialien mit Bestand, Einheit, Mindestbestand und Notizen
-- Materialmengen pro Wartung zuordnen und bei Erledigung automatisch abbuchen
+- Verbrauchsartikel und Mengen beim Anlegen auswählen und bei Erledigung
+  automatisch abbuchen
+- Erinnerungen zu einem Termin oder bei einem Entitätssignal mit Materialbestand
+  und optionalem Handy-Push
 - Kein Teilverbrauch, wenn für eine Wartung Material fehlt
 - Native Aufgabenliste für Wartungen und berechnete Material-Einkaufsliste
 - Sensoren für fällige Wartungen, nächsten Termin, fehlende Materialien und
@@ -57,14 +60,16 @@ Beim Hochladen einer neuen Version auf GitHub müssen `hacs.json` und
 
 1. **Material hinzufügen**: beispielsweise „Filter“, Bestand 3, Mindestbestand 1,
    Einheit „Stück“.
-2. **Wartung hinzufügen**: beispielsweise „Filter wechseln“, Datum und
-   Wiederholung alle 6 Monate. Für „alle 8 Wochen“ die Anzahl 8 und die Einheit
-   **Wochen** wählen. Anzahl 0 bedeutet keine zeitliche Wiederholung.
-3. **Material zuordnen**: Wartung und Material auswählen und den Verbrauch
-   je Durchführung eintragen. Menge 0 entfernt die Zuordnung.
-4. Öffne in der Seitenleiste **Aufgabenlisten** die Liste **Wartungen**.
+2. Wähle **Wartung hinzufügen** und gib Name, Datum oder Wartungsmeldung und
+   gegebenenfalls einen Rhythmus ein. Für „alle 8 Wochen“ wählst du die Anzahl 8
+   und die Einheit **Wochen**. Anzahl 0 schaltet den Zeitrhythmus aus.
+3. Wähle unter **Verbrauchsartikel** die benötigten Artikel und gib je Artikel
+   die Menge pro Durchführung an. Über **Material zuordnen** kannst du die
+   Mengen später ändern. Menge 0 entfernt dort eine Zuordnung.
+4. Stelle bei Bedarf **Erinnerung** und **Handy-Push** ein.
+5. Öffne in der Seitenleiste **Aufgabenlisten** die Liste **Wartungen**.
    Beim Abhaken wird Material verbraucht und der nächste Termin berechnet.
-5. Fehlendes Material steht in **Material einkaufen**. Nach dem Einkauf den
+6. Fehlendes Material steht in **Material einkaufen**. Nach dem Einkauf den
    Bestand über **Material bearbeiten** setzen oder die Aktion
    `maintenance_planner.adjust_stock` verwenden.
 
@@ -84,16 +89,12 @@ werden der genaue Zustand oder ein Attribut sowie numerische Vergleiche
 konfigurierten Regeln; Texte aus beliebigen Meldungen werden nicht frei
 interpretiert.
 
-Beispiel für deine BWT-Anlage:
-
-1. Wartung **Salz nachfüllen** anlegen. Bei rein bedarfsabhängiger Wartung kein
-   Datum und Wiederholungsanzahl 0 eintragen.
-2. Unter **Auslöseregel festlegen** diese Wartung auswählen und die Regel
-   aktivieren.
-3. Entität `binary_sensor.bwt_perla_duplex_salzvorrat_leer` wählen, kein Attribut,
-   Vergleich **ist gleich** und Wert `on` setzen.
-4. Bei Bedarf Material **Salz** mit Einheit **kg** anlegen und die tatsächlich
-   je Nachfüllen verwendete Menge zuordnen.
+Für die BWT-Anlage legst du **Salz nachfüllen** an und aktivierst
+**Wartungsmeldung verwenden**. Wähle die Anlage als **Gerät für Wartungsmeldung**.
+Im nächsten Schritt wählst du `binary_sensor.bwt_perla_duplex_salzvorrat_leer`
+und den Zustand `on`. Für eine Wartung allein nach Bedarf lässt du das Datum
+leer und stellst die Wiederholung auf 0. Wenn **Salz** bereits als Material
+angelegt ist, kannst du beim Anlegen auch die benötigte Menge in kg eintragen.
 
 Sobald die Regel zutrifft, wird „Salz nachfüllen“ heute fällig. Ein bereits
 überfälliger Termin bleibt erhalten. Ein früher erledigter Eintrag wird wieder
@@ -114,8 +115,31 @@ Für Attribute werden Wahrheitswerte als `true`/`false` verglichen, sonst als
 Text. Der Vergleich **ist gleich** unterscheidet Groß- und Kleinschreibung;
 numerische Grenzen sind strikt (`below: 5` bedeutet kleiner als 5).
 
-Regeln werden unter derselben Option geändert oder deaktiviert. Falls eine
+Unter **Auslöseregel festlegen** kannst du Regeln nachträglich ändern,
+deaktivieren oder mit Attributen und Schwellenwerten verfeinern. Falls eine
 Quellentität umbenannt oder gelöscht wird, die Regel entsprechend aktualisieren.
+
+## Erinnerungen
+
+Beim Anlegen oder Bearbeiten einer Wartung wählst du **Aus**,
+**Am Fälligkeitstag**, **Eine Woche vorher** oder **Bei Entitätssignal**.
+Die Erinnerung erscheint in Home Assistant. Unter **Handy-Push** kannst du
+zusätzlich ein Telefon auswählen, das bereits für Benachrichtigungen über die
+Companion App registriert ist.
+
+Mit **Bei Entitätssignal** wählst du im nächsten Schritt die Entität und ihren
+auslösenden Zustand. Das ausgewählte Gerät grenzt die Liste ein. So kann bei
+BWT **Salz fast leer** eine Vorwarnung senden, während **Salz leer** die Wartung
+fällig setzt. Die Vorwarnung funktioniert ohne geplantes Datum und wird bei
+einem erneuten Wechsel in den passenden Zustand wieder ausgelöst.
+
+Die Nachricht nennt pro Artikel die benötigte, vorhandene und fehlende Menge
+zum Zeitpunkt der Erinnerung. Bei Zeiterinnerungen prüft der Planer täglich um 9 Uhr Ortszeit,
+beim Start und bei Änderungen des Termins oder der Erinnerungseinstellungen.
+Eine offene Wartung im Erinnerungszeitraum kann daher auch direkt nach dem
+Anlegen eine Nachricht auslösen. Wenn erst eine Wartungsmeldung das Datum
+festlegt, ist die Wartung ab diesem Moment fällig und die Erinnerung kann
+ab dann erscheinen.
 
 ## Planung und Bestände
 

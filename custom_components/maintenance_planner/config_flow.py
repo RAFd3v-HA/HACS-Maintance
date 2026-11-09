@@ -13,13 +13,18 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     BooleanSelector,
     DateSelector,
+    DeviceSelector,
     EntitySelector,
+    EntitySelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    ObjectSelector,
+    ObjectSelectorConfig,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -32,6 +37,7 @@ from .models import MaterialInUseError, PlannerError
 
 _MAX_HORIZON_DAYS = 365
 _MAX_INTERVAL_COUNT = 36500
+_REMINDER_DAYS = {"off": None, "due": 0, "week": 7, "signal": None}
 
 
 def _is_whole_number(value: float, maximum: int) -> bool:
@@ -53,21 +59,50 @@ def _number(
     )
 
 
-def _selection(records: dict[str, dict[str, Any]]) -> SelectSelector:
+def _selection(
+    records: dict[str, dict[str, Any]], *, show_units: bool = False
+) -> SelectSelector:
     """Build a labelled selection while keeping stable IDs in the stored value."""
-    names = [record["name"] for record in records.values()]
+    labels = {
+        record_id: f"{record['name']} ({record['unit']})"
+        if show_units and record["unit"]
+        else record["name"]
+        for record_id, record in records.items()
+    }
+    names = list(labels.values())
     options = [
         {
             "value": record_id,
-            "label": record["name"]
-            if names.count(record["name"]) == 1
-            else f"{record['name']} ({record_id[:6]})",
+            "label": name if names.count(name) == 1 else f"{name} ({record_id[:6]})",
         }
-        for record_id, record in records.items()
+        for record_id, name in labels.items()
     ]
     return SelectSelector(
         SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
     )
+
+
+def _consumable_requirements(
+    rows: list[dict[str, Any]], materials: dict[str, dict[str, Any]]
+) -> dict[str, float]:
+    """Convert the form rows to the planner's material-to-quantity mapping."""
+    requirements: dict[str, float] = {}
+    for row in rows:
+        material_id = row["material_id"]
+        if material_id in requirements:
+            raise PlannerError("duplicate_consumable")
+        try:
+            quantity = float(row["quantity"])
+        except (ValueError, TypeError, OverflowError) as err:
+            raise PlannerError("invalid_consumable") from err
+        if (
+            material_id not in materials
+            or isinstance(row["quantity"], bool)
+            or not 0 < quantity <= 1_000_000_000
+        ):
+            raise PlannerError("invalid_consumable")
+        requirements[material_id] = quantity
+    return requirements
 
 
 class MaintenancePlannerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -131,6 +166,10 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
         self._material_id: str | None = None
         self._delete_kind: str | None = None
         self._delete_id: str | None = None
+        self._task_draft: dict[str, Any] | None = None
+        self._signal_device_id: str | None = None
+        self._use_due_signal = False
+        self._use_reminder_signal = False
 
     @property
     def _manager(self) -> Any:
@@ -223,6 +262,8 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
         current = self._manager.data.tasks.get(self._task_id, {})
         if self._task_id is not None and not current:
             return self.async_abort(reason="not_found")
+        adding = step_id == "add_task"
+        materials = self._manager.data.materials
         errors: dict[str, str] = {}
         if user_input is not None:
             fields = dict(user_input)
@@ -233,6 +274,19 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 fields["due_date"] = None
             interval_count = fields.pop("interval_count", 0)
             interval_unit = fields.pop("interval_unit", "days")
+            reminder_mode = fields.pop("reminder_mode", None)
+            reminder_push = fields.pop("reminder_push", None)
+            if reminder_mode is not None:
+                fields["reminder_days"] = _REMINDER_DAYS[reminder_mode]
+                if reminder_mode != "signal":
+                    fields["reminder_trigger"] = None
+            if reminder_push is not None:
+                fields["reminder_push"] = (
+                    None if reminder_push == "local" else reminder_push
+                )
+            use_signal = fields.pop("use_signal", False)
+            signal_device_id = fields.pop("signal_device_id", None)
+            rows = fields.pop("consumables", [])
             if interval_unit not in ("days", "weeks", "months"):
                 errors["interval_unit"] = "invalid_interval"
             elif not _is_whole_number(interval_count, _MAX_INTERVAL_COUNT):
@@ -242,46 +296,204 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             else:
                 fields.update(interval_days=0, interval_weeks=0, interval_months=0)
                 fields[f"interval_{interval_unit}"] = int(interval_count)
-                try:
-                    await self._manager.async_upsert_task(self._task_id, **fields)
-                except PlannerError:
-                    errors["base"] = "invalid_input"
-                except HomeAssistantError:
-                    errors["base"] = "storage_error"
-                else:
-                    return self._finish()
+                if adding:
+                    try:
+                        fields["requirements"] = _consumable_requirements(
+                            rows, materials
+                        )
+                    except PlannerError as err:
+                        errors["consumables"] = str(err)
+                if not errors and (
+                    (adding and use_signal) or reminder_mode == "signal"
+                ):
+                    self._signal_device_id = signal_device_id
+                    if self._signal_entities() == []:
+                        errors["signal_device_id"] = "signal_device_has_no_entities"
+                    else:
+                        self._task_draft = fields
+                        self._use_due_signal = adding and use_signal
+                        self._use_reminder_signal = reminder_mode == "signal"
+                        return await self.async_step_task_signals()
+                if not errors:
+                    errors = await self._save_task(fields)
+                    if not errors:
+                        return self._finish()
         interval_count = 0
         interval_unit = "days"
         for unit in ("days", "weeks", "months"):
             if count := current.get(f"interval_{unit}", 0):
                 interval_count, interval_unit = count, unit
                 break
-        schema = vol.Schema(
-            {
-                vol.Required("name"): TextSelector(),
-                vol.Optional("due_date"): DateSelector(),
-                vol.Required("clear_due_date", default=False): BooleanSelector(),
-                vol.Required("interval_count", default=interval_count): _number(
-                    0, _MAX_INTERVAL_COUNT, integer=True
-                ),
-                vol.Required("interval_unit", default=interval_unit): SelectSelector(
-                    SelectSelectorConfig(
-                        options=["days", "weeks", "months"],
-                        translation_key="interval_unit",
-                        mode=SelectSelectorMode.DROPDOWN,
+        schema_fields = {
+            vol.Required("name"): TextSelector(),
+            vol.Optional("due_date"): DateSelector(),
+            vol.Required("clear_due_date", default=False): BooleanSelector(),
+            vol.Required("interval_count", default=interval_count): _number(
+                0, _MAX_INTERVAL_COUNT, integer=True
+            ),
+            vol.Required("interval_unit", default=interval_unit): SelectSelector(
+                SelectSelectorConfig(
+                    options=["days", "weeks", "months"],
+                    translation_key="interval_unit",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional("description", default=""): TextSelector(
+                TextSelectorConfig(multiline=True)
+            ),
+        }
+        if adding:
+            schema_fields[vol.Optional("use_signal", default=False)] = BooleanSelector()
+            if materials:
+                schema_fields[vol.Optional("consumables")] = ObjectSelector(
+                    ObjectSelectorConfig(
+                        multiple=True,
+                        label_field="material_id",
+                        description_field="quantity",
+                        translation_key="task_consumables",
+                        fields={
+                            "material_id": {
+                                "selector": _selection(materials, show_units=True),
+                                "required": True,
+                            },
+                            "quantity": {"selector": _number(), "required": True},
+                        },
                     )
-                ),
-                vol.Optional("description", default=""): TextSelector(
-                    TextSelectorConfig(multiline=True)
-                ),
-            }
-        )
+                )
+        schema_fields.update(self._reminder_fields(current))
+        schema_fields[vol.Optional("signal_device_id")] = DeviceSelector()
         suggested = {key: value for key, value in current.items() if value is not None}
         suggested.update(interval_count=interval_count, interval_unit=interval_unit)
         suggested.update(user_input or {})
         return self.async_show_form(
             step_id=step_id,
-            data_schema=self.add_suggested_values_to_schema(schema, suggested),
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(schema_fields), suggested
+            ),
+            errors=errors,
+        )
+
+    def _reminder_fields(self, task: dict[str, Any]) -> dict[Any, Any]:
+        """Offer local reminders and the available Companion App push services."""
+        mode = (
+            "signal"
+            if task.get("reminder_trigger")
+            else next(
+                key
+                for key, days in _REMINDER_DAYS.items()
+                if days == task.get("reminder_days")
+            )
+        )
+        push_services = {
+            name
+            for name in self.hass.services.async_services().get("notify", {})
+            if name.startswith("mobile_app_")
+        }
+        if push := task.get("reminder_push"):
+            push_services.add(push)
+        return {
+            vol.Optional(
+                "reminder_mode", description={"suggested_value": mode}
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(_REMINDER_DAYS), translation_key="task_reminder_mode"
+                )
+            ),
+            vol.Optional(
+                "reminder_push", description={"suggested_value": push or "local"}
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[{"value": "local", "label": "Home Assistant only"}]
+                    + [
+                        {
+                            "value": name,
+                            "label": name.removeprefix("mobile_app_").replace("_", " "),
+                        }
+                        for name in sorted(push_services)
+                    ],
+                    translation_key="task_reminder_push",
+                )
+            ),
+        }
+
+    async def _save_task(self, fields: dict[str, Any]) -> dict[str, str]:
+        """Save a task and its assignments together."""
+        try:
+            await self._manager.async_upsert_task(self._task_id, **fields)
+        except PlannerError:
+            return {"base": "invalid_input"}
+        except HomeAssistantError:
+            return {"base": "storage_error"}
+        return {}
+
+    def _signal_entities(self) -> list[str] | None:
+        """Return the enabled entities of the selected device, or allow all."""
+        if not self._signal_device_id:
+            return None
+        return [
+            entry.entity_id
+            for entry in er.async_entries_for_device(
+                er.async_get(self.hass), self._signal_device_id
+            )
+        ]
+
+    async def async_step_task_signals(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose separate conditions for due maintenance and early reminders."""
+        current = self._manager.data.tasks.get(self._task_id, {})
+        if self._task_draft is None or (self._task_id is not None and not current):
+            return self.async_abort(reason="not_found")
+        entities = self._signal_entities()
+        if entities == []:
+            return self.async_abort(reason="signal_device_unavailable")
+        selector = EntitySelector(
+            EntitySelectorConfig(include_entities=entities)
+            if entities is not None
+            else None
+        )
+        signals = []
+        if self._use_due_signal:
+            signals.append(("trigger", "trigger_entity_id", "trigger_value"))
+        if self._use_reminder_signal:
+            signals.append(("reminder_trigger", "reminder_entity_id", "reminder_value"))
+
+        schema_fields: dict[Any, Any] = {}
+        suggested: dict[str, Any] = {}
+        fields = dict(self._task_draft)
+        errors: dict[str, str] = {}
+        registry = er.async_get(self.hass)
+        for model_key, entity_key, value_key in signals:
+            rule = current.get(model_key) or {}
+            schema_fields[vol.Required(entity_key)] = selector
+            schema_fields[vol.Required(value_key, default=rule.get("value", "on"))] = (
+                TextSelector()
+            )
+            if existing := rule.get("entity_id"):
+                if entities is None or existing in entities:
+                    suggested[entity_key] = existing
+            if user_input is not None:
+                entity_id = user_input[entity_key]
+                if entry := registry.async_get(entity_id):
+                    entity_id = entry.entity_id
+                if entities is not None and entity_id not in entities:
+                    errors[entity_key] = "signal_entity_unavailable"
+                else:
+                    fields[model_key] = {
+                        "entity_id": entity_id,
+                        "operator": "equals",
+                        "value": user_input[value_key],
+                    }
+        if user_input is not None and not errors:
+            errors = await self._save_task(fields)
+            if not errors:
+                return self._finish()
+        suggested.update(user_input or {})
+        return self.async_show_form(
+            step_id="task_signals",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(schema_fields), suggested
+            ),
             errors=errors,
         )
 

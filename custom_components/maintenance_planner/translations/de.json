@@ -45,19 +45,30 @@
       },
       "add_task": {
         "title": "Wartung hinzufügen",
-        "description": "Für eine einmalige Wartung die Anzahl auf 0 lassen. Für einen Rhythmus Anzahl und Einheit wählen, beispielsweise 8 Wochen. Der nächste Termin wird ab dem Erledigungsdatum berechnet. Material und Auslöseregeln anschließend über die Verwaltung zuordnen.",
+        "description": "Für einen festen Rhythmus Anzahl und Einheit wählen, beispielsweise 8 Wochen. Der nächste Termin wird ab dem Erledigungsdatum berechnet. Mit Anzahl 0 wird kein Folgetermin berechnet.",
         "data": {
           "name": "Name",
           "due_date": "Fällig am",
           "clear_due_date": "Fälligkeitsdatum entfernen",
           "description": "Beschreibung",
-          "interval_count": "Wiederholung alle (0 = einmalig)",
-          "interval_unit": "Einheit des Rhythmus"
+          "interval_count": "Wiederholung alle (0 = kein Rhythmus)",
+          "interval_unit": "Einheit des Rhythmus",
+          "consumables": "Verbrauchsartikel",
+          "use_signal": "Wartungsmeldung verwenden",
+          "signal_device_id": "Gerät für Meldungen",
+          "reminder_mode": "Erinnerung",
+          "reminder_push": "Handy-Push"
         },
         "data_description": {
           "clear_due_date": "Aktivieren, um ein gespeichertes Fälligkeitsdatum zu löschen.",
           "interval_count": "Zum Beispiel 8 mit der Einheit Wochen. 8 Wochen entsprechen 56 Tagen.",
-          "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet."
+          "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet.",
+          "consumables": "Optional ein oder mehrere vorhandene Materialien auswählen und die benötigte Menge pro Durchführung angeben.",
+          "due_date": "Datum leer lassen und die Wiederholung auf 0 setzen, wenn nur die Wartungsmeldung auslösen soll. Ein Datum kann zusätzlich zur Meldung eingetragen werden.",
+          "use_signal": "Aktivieren, um im nächsten Schritt die Entität und den auslösenden Zustand auszuwählen.",
+          "signal_device_id": "Optional ein Gerät auswählen, um im nächsten Schritt nur dessen Entitäten für Wartungsmeldung und Erinnerung anzuzeigen. Ohne Geräteauswahl stehen alle verfügbaren Entitäten zur Auswahl.",
+          "reminder_mode": "Eine Benachrichtigung am Fälligkeitstag, eine Woche vorher oder bei einer Vorwarnung einer Entität einrichten.",
+          "reminder_push": "Optional zusätzlich eine Push-Nachricht an ein Gerät mit Home Assistant Companion App senden."
         }
       },
       "edit_task": {
@@ -75,12 +86,18 @@
           "clear_due_date": "Fälligkeitsdatum entfernen",
           "description": "Beschreibung",
           "interval_count": "Wiederholung alle (0 = einmalig)",
-          "interval_unit": "Einheit des Rhythmus"
+          "interval_unit": "Einheit des Rhythmus",
+          "reminder_mode": "Erinnerung",
+          "reminder_push": "Handy-Push",
+          "signal_device_id": "Gerät für Meldungen"
         },
         "data_description": {
           "clear_due_date": "Aktivieren, um ein gespeichertes Fälligkeitsdatum zu löschen.",
           "interval_count": "Zum Beispiel 8 mit der Einheit Wochen. 8 Wochen entsprechen 56 Tagen.",
-          "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet."
+          "interval_unit": "Monate sind Kalendermonate; am Monatsende wird der letzte gültige Tag verwendet.",
+          "reminder_mode": "Eine Benachrichtigung am Fälligkeitstag, eine Woche vorher oder bei einer Vorwarnung einer Entität einrichten.",
+          "reminder_push": "Optional zusätzlich eine Push-Nachricht an ein Gerät mit Home Assistant Companion App senden.",
+          "signal_device_id": "Optional ein Gerät auswählen, um im nächsten Schritt nur dessen Entitäten für Wartungsmeldung und Erinnerung anzuzeigen. Ohne Geräteauswahl stehen alle verfügbaren Entitäten zur Auswahl."
         }
       },
       "add_material": {
@@ -160,6 +177,22 @@
           "trigger_attribute": "Interner Attributname, zum Beispiel operating_hours. Leer lassen für den Zustand.",
           "trigger_value": "Bei „Ist gleich“ exakt und mit Groß-/Kleinschreibung vergleichen, z. B. on. Für „Größer als“ oder „Kleiner als“ eine Zahl eingeben; der Grenzwert selbst löst nicht aus."
         }
+      },
+      "task_signals": {
+        "title": "Meldungen auswählen",
+        "description": "Die Erinnerung kann bei fast leerem Salzvorrat eine Vorwarnung senden. Fällig wird die Wartung am optionalen Termin oder bei passender Wartungsmeldung, etwa bei leerem Salzvorrat.",
+        "data": {
+          "trigger_entity_id": "Wartungsmeldung",
+          "trigger_value": "Auslösender Zustand",
+          "reminder_entity_id": "Entität für Erinnerung",
+          "reminder_value": "Zustand für Erinnerung"
+        },
+        "data_description": {
+          "trigger_entity_id": "Optional eine Entität auswählen, etwa den Binärsensor für leeren Salzvorrat einer BWT-Anlage. Die Wartung wird bei passendem Zustand fällig.",
+          "trigger_value": "Der interne Zustand der Entität muss exakt übereinstimmen. Voreingestellt ist `on`, wie bei Binärsensoren.",
+          "reminder_entity_id": "Die Entität für die Vorwarnung auswählen, zum Beispiel den BWT-Sensor für fast leeren Salzvorrat.",
+          "reminder_value": "Der interne Zustand der Entität muss exakt übereinstimmen. Voreingestellt ist `on`, wie bei Binärsensoren."
+        }
       }
     },
     "error": {
@@ -173,13 +206,18 @@
       "invalid_horizon": "Bitte eine ganze Zahl von 0 bis 365 eingeben.",
       "entity_required": "Bitte eine Entität für die aktivierte Regel auswählen.",
       "value_required": "Bitte einen Vergleichswert angeben. Für einen leeren Zustand ausdrücklich einen leeren Text verwenden.",
-      "invalid_rule": "Die Regel ist ungültig. Entität, Vergleich und Wert prüfen. Zahlenvergleiche benötigen einen endlichen Zahlenwert."
+      "invalid_rule": "Die Regel ist ungültig. Entität, Vergleich und Wert prüfen. Zahlenvergleiche benötigen einen endlichen Zahlenwert.",
+      "duplicate_consumable": "Jeden Verbrauchsartikel nur einmal auswählen und die benötigte Gesamtmenge eingeben.",
+      "invalid_consumable": "Bitte vorhandene Materialien auswählen und für jedes eine gültige Menge größer als 0 eingeben.",
+      "signal_device_has_no_entities": "Dieses Gerät hat keine aktivierten Entitäten. Bitte ein anderes Gerät auswählen oder die Geräteauswahl leer lassen.",
+      "signal_entity_unavailable": "Bitte eine verfügbare Entität aus der Liste auswählen."
     },
     "abort": {
       "not_loaded": "Die Integration ist nicht geladen. Bitte zuerst neu laden und erneut versuchen.",
       "no_tasks": "Es sind noch keine Wartungen vorhanden.",
       "no_materials": "Es sind noch keine Materialien vorhanden.",
-      "not_found": "Der ausgewählte Eintrag ist nicht mehr vorhanden."
+      "not_found": "Der ausgewählte Eintrag ist nicht mehr vorhanden.",
+      "signal_device_unavailable": "Das ausgewählte Gerät hat keine verfügbaren Entitäten mehr. Öffne das Formular erneut und wähle ein verfügbares Gerät."
     }
   },
   "entity": {
@@ -355,6 +393,30 @@
         "equals": "Ist gleich",
         "above": "Größer als",
         "below": "Kleiner als"
+      }
+    },
+    "task_consumables": {
+      "fields": {
+        "material_id": {
+          "name": "Material"
+        },
+        "quantity": {
+          "name": "Menge pro Durchführung",
+          "overview_label": "Je Durchführung {value}"
+        }
+      }
+    },
+    "task_reminder_mode": {
+      "options": {
+        "off": "Aus",
+        "due": "Am Fälligkeitstag",
+        "week": "Eine Woche vorher",
+        "signal": "Bei Entitätssignal"
+      }
+    },
+    "task_reminder_push": {
+      "options": {
+        "local": "Nur in Home Assistant"
       }
     }
   }

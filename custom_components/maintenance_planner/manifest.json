@@ -3,10 +3,11 @@
   "name": "Maintenance Planner",
   "codeowners": ["@couchmatedev"],
   "config_flow": true,
+  "dependencies": ["persistent_notification"],
   "documentation": "https://github.com/RAFd3v-HA/HACS-Maintance",
   "integration_type": "service",
   "iot_class": "local_push",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.2.1"
+  "version": "0.3.0"
 }

@@ -86,6 +86,20 @@ def _iso_date(value: Any, label: str) -> str | None:
     return value
 
 
+def _signal_token(value: Any, label: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.fullmatch(r"signal:[0-9a-f]{32}", value):
+        raise PlannerError(f"{label} must be a reminder activation token")
+    return value
+
+
+def _reminder_key(value: Any, label: str) -> str | None:
+    if isinstance(value, str) and value.startswith("signal:"):
+        return _signal_token(value, label)
+    return _iso_date(value, label)
+
+
 def _calendar_date(value: Any, label: str) -> date:
     if not isinstance(value, date) or isinstance(value, datetime):
         raise PlannerError(f"{label} must be a calendar date")
@@ -168,6 +182,15 @@ class PlannerData:
                 raise PlannerError("Saved material ID does not match its key")
             fields = {key: value for key, value in material.items() if key != "id"}
             result.upsert_material(material_id, **fields)
+        protected_fields = {
+            "id",
+            "generation",
+            "trigger_active",
+            "triggered",
+            "reminder_trigger_token",
+            "reminded_for",
+            "pushed_for",
+        }
         for task_id, task in tasks.items():
             _identifier(task_id, "Task ID")
             if not isinstance(task, dict) or task.get("id") != task_id:
@@ -179,13 +202,21 @@ class PlannerData:
             if any(not isinstance(value, bool) for value in trigger_state.values()):
                 raise PlannerError("Saved trigger state must use boolean values")
             fields = {
-                key: value
-                for key, value in task.items()
-                if key not in {"id", "generation", "trigger_active", "triggered"}
+                key: value for key, value in task.items() if key not in protected_fields
             }
             result.upsert_task(task_id, **fields)
-            result.tasks[task_id]["generation"] = generation
-            result.tasks[task_id].update(trigger_state)
+            result.tasks[task_id].update(
+                trigger_state,
+                generation=generation,
+                reminder_trigger_token=_signal_token(
+                    task.get("reminder_trigger_token"),
+                    "Saved reminder activation token",
+                ),
+                reminded_for=_reminder_key(
+                    task.get("reminded_for"), "Saved reminder key"
+                ),
+                pushed_for=_reminder_key(task.get("pushed_for"), "Saved push key"),
+            )
         for record in history:
             result._validate_history(record)
         result.history = deepcopy(history[-MAX_HISTORY:])
@@ -258,6 +289,9 @@ class PlannerData:
             "interval_weeks",
             "interval_months",
             "trigger",
+            "reminder_days",
+            "reminder_trigger",
+            "reminder_push",
             "requirements",
             "description",
             "completed",
@@ -275,6 +309,12 @@ class PlannerData:
             "trigger": None,
             "trigger_active": False,
             "triggered": False,
+            "reminder_days": None,
+            "reminder_trigger": None,
+            "reminder_trigger_token": None,
+            "reminder_push": None,
+            "reminded_for": None,
+            "pushed_for": None,
             "requirements": {},
             "description": "",
             "completed": False,
@@ -301,10 +341,35 @@ class PlannerData:
                 "Choose only one recurrence interval: days, weeks, or months"
             )
         task["trigger"] = _trigger(task["trigger"])
+        reminder_days = task["reminder_days"]
+        if reminder_days is not None and (
+            type(reminder_days) is not int or reminder_days not in (0, 7)
+        ):
+            raise PlannerError(
+                "Reminder must be disabled, on the due date, or 7 days before"
+            )
+        task["reminder_trigger"] = _trigger(task["reminder_trigger"])
+        if reminder_days is not None and task["reminder_trigger"] is not None:
+            raise PlannerError("Choose a date or an entity condition for the reminder")
+        reminder_push = task["reminder_push"]
+        if reminder_push is not None and (
+            not isinstance(reminder_push, str)
+            or not re.fullmatch(r"mobile_app_[a-z0-9_]+", reminder_push)
+        ):
+            raise PlannerError(
+                "Push target must be a mobile_app notification service name"
+            )
         previous = self.tasks.get(task_id)
-        if previous is not None and previous["trigger"] != task["trigger"]:
-            task["trigger_active"] = False
-            task["triggered"] = False
+        if previous is not None:
+            if previous["trigger"] != task["trigger"]:
+                task["trigger_active"] = False
+                task["triggered"] = False
+            if previous["reminder_trigger"] != task["reminder_trigger"]:
+                task.update(
+                    reminder_trigger_token=None, reminded_for=None, pushed_for=None
+                )
+            elif previous["reminder_push"] != reminder_push:
+                task["pushed_for"] = None
         if not isinstance(task["completed"], bool):
             raise PlannerError("Completed must be a boolean")
         if not isinstance(task["requirements"], dict):
@@ -374,6 +439,8 @@ class PlannerData:
         task["generation"] += 1
         task["completed"] = next_due is None
         task["triggered"] = False
+        if task["reminder_trigger"] is None:
+            task.update(reminded_for=None, pushed_for=None)
         if next_due is not None:
             task["due_date"] = next_due.isoformat()
         self.history.append(
@@ -397,6 +464,32 @@ class PlannerData:
         if task["completed"]:
             task["completed"] = False
             task["generation"] += 1
+            if task["reminder_trigger"] is None:
+                task.update(reminded_for=None, pushed_for=None)
+
+    def mark_reminder_sent(self, task_id: str, key: str, *, push: bool = False) -> None:
+        """Record delivery for one channel and due date or condition activation."""
+        task = self._task(task_id)
+        key = _reminder_key(key, "Reminder key")
+        if key is None:
+            raise PlannerError("Reminder key is required")
+        task["pushed_for" if push else "reminded_for"] = key
+
+    def set_reminder_trigger_state(self, task_id: str, active: bool) -> bool:
+        """Start or rearm a reminder activation without changing the maintenance task."""
+        task = self._task(task_id)
+        if not isinstance(active, bool):
+            raise PlannerError("Reminder condition activity must be a boolean")
+        if task["reminder_trigger"] is None:
+            raise PlannerError("Maintenance task has no reminder condition")
+        if bool(task["reminder_trigger_token"]) == active:
+            return False
+        task.update(
+            reminder_trigger_token=f"signal:{uuid4().hex}" if active else None,
+            reminded_for=None,
+            pushed_for=None,
+        )
+        return True
 
     def set_trigger_state(self, task_id: str, active: bool, observed_on: date) -> bool:
         """Latch condition transitions and make a rising condition due today.
@@ -425,6 +518,8 @@ class PlannerData:
             if task["completed"]:
                 task["completed"] = False
                 task["generation"] += 1
+                if task["reminder_trigger"] is None:
+                    task.update(reminded_for=None, pushed_for=None)
         return True
 
     def due_tasks(self, today: date) -> list[dict[str, Any]]:
