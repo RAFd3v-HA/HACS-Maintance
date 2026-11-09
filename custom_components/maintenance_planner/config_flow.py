@@ -30,20 +30,20 @@ from homeassistant.helpers.selector import (
 from .const import DOMAIN
 from .models import MaterialInUseError, PlannerError
 
+_MAX_HORIZON_DAYS = 365
+_MAX_INTERVAL_COUNT = 36500
 
-def _integer(value: float) -> int:
-    """Reject fractional recurrence intervals instead of truncating them."""
-    integer = int(value)
-    if value != integer:
-        raise vol.Invalid("Expected a whole number")
-    return integer
+
+def _is_whole_number(value: float, maximum: int) -> bool:
+    """Check submitted counts before converting them to integers."""
+    return 0 <= value <= maximum and value % 1 == 0
 
 
 def _number(
     minimum: float = 0, maximum: float = 1_000_000_000, *, integer: bool = False
-) -> Any:
-    """Return a numeric UI field with backend validation."""
-    selector = NumberSelector(
+) -> NumberSelector:
+    """Expose a serializable selector for the numeric UI field."""
+    return NumberSelector(
         NumberSelectorConfig(
             min=minimum,
             max=maximum,
@@ -51,9 +51,6 @@ def _number(
             mode=NumberSelectorMode.BOX,
         )
     )
-    if integer:
-        return vol.All(selector, _integer, vol.Range(min=minimum, max=maximum))
-    return selector
 
 
 def _selection(records: dict[str, dict[str, Any]]) -> SelectSelector:
@@ -95,13 +92,16 @@ class MaintenancePlannerConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             name = user_input["name"].strip()
+            horizon_days = user_input["horizon_days"]
             if not name:
                 errors["name"] = "invalid_name"
+            elif not _is_whole_number(horizon_days, _MAX_HORIZON_DAYS):
+                errors["horizon_days"] = "invalid_horizon"
             else:
                 return self.async_create_entry(
                     title=name,
                     data={"name": name},
-                    options={"horizon_days": user_input["horizon_days"]},
+                    options={"horizon_days": int(horizon_days)},
                 )
         return self.async_show_form(
             step_id="user",
@@ -112,7 +112,7 @@ class MaintenancePlannerConfigFlow(ConfigFlow, domain=DOMAIN):
                             "name", default="Maintenance Planner"
                         ): TextSelector(),
                         vol.Required("horizon_days", default=30): _number(
-                            0, 365, integer=True
+                            0, _MAX_HORIZON_DAYS, integer=True
                         ),
                     }
                 ),
@@ -159,10 +159,18 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Adjust the shopping planning horizon."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(
-                title="", data={**self.config_entry.options, **user_input}
-            )
+            horizon_days = user_input["horizon_days"]
+            if _is_whole_number(horizon_days, _MAX_HORIZON_DAYS):
+                return self.async_create_entry(
+                    title="",
+                    data={
+                        **self.config_entry.options,
+                        "horizon_days": int(horizon_days),
+                    },
+                )
+            errors["horizon_days"] = "invalid_horizon"
         return self.async_show_form(
             step_id="settings",
             data_schema=vol.Schema(
@@ -170,9 +178,10 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                     vol.Required(
                         "horizon_days",
                         default=self.config_entry.options.get("horizon_days", 30),
-                    ): _number(0, 365, integer=True)
+                    ): _number(0, _MAX_HORIZON_DAYS, integer=True)
                 }
             ),
+            errors=errors,
         )
 
     async def async_step_add_task(
@@ -226,11 +235,13 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
             interval_unit = fields.pop("interval_unit", "days")
             if interval_unit not in ("days", "weeks", "months"):
                 errors["interval_unit"] = "invalid_interval"
+            elif not _is_whole_number(interval_count, _MAX_INTERVAL_COUNT):
+                errors["interval_count"] = "invalid_interval_count"
             elif not fields["name"].strip():
                 errors["name"] = "invalid_name"
             else:
                 fields.update(interval_days=0, interval_weeks=0, interval_months=0)
-                fields[f"interval_{interval_unit}"] = interval_count
+                fields[f"interval_{interval_unit}"] = int(interval_count)
                 try:
                     await self._manager.async_upsert_task(self._task_id, **fields)
                 except PlannerError:
@@ -251,7 +262,7 @@ class MaintenancePlannerOptionsFlow(OptionsFlow):
                 vol.Optional("due_date"): DateSelector(),
                 vol.Required("clear_due_date", default=False): BooleanSelector(),
                 vol.Required("interval_count", default=interval_count): _number(
-                    0, 36500, integer=True
+                    0, _MAX_INTERVAL_COUNT, integer=True
                 ),
                 vol.Required("interval_unit", default=interval_unit): SelectSelector(
                     SelectSelectorConfig(

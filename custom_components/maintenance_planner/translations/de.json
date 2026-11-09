@@ -12,7 +12,8 @@
       }
     },
     "error": {
-      "invalid_name": "Bitte einen Namen eingeben."
+      "invalid_name": "Bitte einen Namen eingeben.",
+      "invalid_horizon": "Bitte eine ganze Zahl von 0 bis 365 eingeben."
     },
     "abort": {
       "already_configured": "Der Wartungsplaner ist bereits eingerichtet.",
@@ -168,6 +169,8 @@
       "not_found": "Der Eintrag wurde inzwischen gelöscht. Bitte die Verwaltung erneut öffnen.",
       "storage_error": "Die Änderung konnte nicht gespeichert werden. Bitte erneut versuchen und bei Bedarf das Home-Assistant-Protokoll prüfen.",
       "invalid_interval": "Bitte Tage, Wochen oder Monate auswählen.",
+      "invalid_interval_count": "Bitte eine ganze Zahl von 0 bis 36500 eingeben.",
+      "invalid_horizon": "Bitte eine ganze Zahl von 0 bis 365 eingeben.",
       "entity_required": "Bitte eine Entität für die aktivierte Regel auswählen.",
       "value_required": "Bitte einen Vergleichswert angeben. Für einen leeren Zustand ausdrücklich einen leeren Text verwenden.",
       "invalid_rule": "Die Regel ist ungültig. Entität, Vergleich und Wert prüfen. Zahlenvergleiche benötigen einen endlichen Zahlenwert."

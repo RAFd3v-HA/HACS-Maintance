@@ -3,13 +3,11 @@
 Lokale Wartungsplanung und Materialverwaltung als Custom Integration. Für
 beliebige Geräte, Fahrzeuge, Anlagen oder andere wiederkehrende Aufgaben.
 
-**Stand: Version 0.2.0.** Noch nicht als GitHub-Repository veröffentlicht
-und noch nicht in einer echten Home-Assistant-Installation erprobt. Die
-Integration benötigt Home Assistant **2026.10 oder neuer**.
+Version **0.2.1** benötigt Home Assistant **2026.10 oder neuer**.
 
-Automatisiert mit Home Assistant **2026.10.4** geprüft: **80 Tests bestanden**,
-einschließlich Einrichtungsdialogen, Verbrauchsbuchungen, Neuladen,
-Schreibfehlern und lokalem Tageswechsel. Ruff-Prüfung und Formatierung bestehen.
+Alle **80 Tests** bestehen mit Home Assistant **2026.11.0**. Die Tests öffnen
+die Formulare für Einrichtung, Einstellungen und Wartungsrhythmus über
+dieselben HTTP-Endpunkte wie die Home-Assistant-Oberfläche.
 
 ## Funktionen
 
@@ -42,14 +40,16 @@ Schreibfehlern und lokalem Tageswechsel. Ruff-Prüfung und Formatierung bestehen
 Es ist kein Eintrag in der `configuration.yaml` erforderlich. Pro Installation
 gibt es einen gemeinsamen Planer.
 
-### HACS vorbereiten
+### Über HACS installieren
 
-Dieses Verzeichnis enthält die Struktur für ein eigenständiges HACS-Repository.
-Nach Veröffentlichung muss dessen Wurzel `hacs.json` und
-`custom_components/maintenance_planner` enthalten. Anschließend lässt es sich
-unter **HACS → Benutzerdefinierte Repositories → Integration** hinzufügen.
-Die im Manifest vorgesehene Repository-Adresse ist bis zur Veröffentlichung
-ein Platzhalter.
+1. Füge das Repository unter **HACS → Benutzerdefinierte Repositories** in der
+   Kategorie **Integration** hinzu. [GitHub-Repository](https://github.com/RAFd3v-HA/HACS-Maintance)
+2. Lade den aktuellen Stand des Wartungsplaners herunter und starte
+   Home Assistant neu.
+3. Füge **Maintenance Planner** unter **Einstellungen → Geräte & Dienste** hinzu.
+
+Beim Hochladen einer neuen Version auf GitHub müssen `hacs.json` und
+`custom_components/` direkt im Hauptverzeichnis des Repositorys liegen.
 
 ## Bedienung
 

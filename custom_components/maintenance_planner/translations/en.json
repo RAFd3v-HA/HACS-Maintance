@@ -12,7 +12,8 @@
       }
     },
     "error": {
-      "invalid_name": "Enter a name."
+      "invalid_name": "Enter a name.",
+      "invalid_horizon": "Enter a whole number from 0 to 365."
     },
     "abort": {
       "already_configured": "Maintenance Planner is already configured.",
@@ -168,6 +169,8 @@
       "not_found": "This entry was deleted. Reopen the management dialog.",
       "storage_error": "The change could not be saved. Try again and check the Home Assistant log if needed.",
       "invalid_interval": "Choose days, weeks or months.",
+      "invalid_interval_count": "Enter a whole number from 0 to 36500.",
+      "invalid_horizon": "Enter a whole number from 0 to 365.",
       "entity_required": "Select an entity for the enabled rule.",
       "value_required": "Provide a comparison value. For an empty state, explicitly use empty text.",
       "invalid_rule": "The rule is invalid. Check the entity, comparison and value. Numeric comparisons require a finite number."
